@@ -1,0 +1,63 @@
+{
+  "name": "paseo-git-diff-with-submodule",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Review Git changes and diffs across a repository and its nested submodules, including ignored submodules.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MinLeeV5/paseo-git-diff-with-submodule.git"
+  },
+  "homepage": "https://github.com/MinLeeV5/paseo-git-diff-with-submodule#readme",
+  "bugs": {
+    "url": "https://github.com/MinLeeV5/paseo-git-diff-with-submodule/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "files": [
+    "paseo-plugin.json",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/",
+    "docs/",
+    "OVERVIEW.md",
+    "OVERVIEW.zh-CN.md",
+    "assets/"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "acceptance": "tsx scripts/acceptance.ts",
+    "check:compatibility": "tsx scripts/check-compatibility.ts",
+    "dev:ui": "vite --config tests/browser/vite.config.ts",
+    "verify:installed": "tsx scripts/verify-installed.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "build:assets": "tsx scripts/build-assets.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@getpaseo/client": "0.12.0",
+    "@getpaseo/plugin": "0.12.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "~19.1.0",
+    "@types/react-dom": "~19.1.0",
+    "@vscode/codicons": "^0.0.46-24",
+    "mermaid": "^12.3.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-web": "0.21.2",
+    "sharp": "^0.35.5",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vite": "7.3.1",
+    "vitest": "4.0.18",
+    "zod": "^4.4.3"
+  }
+}
