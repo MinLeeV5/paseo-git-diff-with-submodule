@@ -1,0 +1,189 @@
+scripts/check-compatibility.ts
+  102169a74ef496b1 1-71
+tests/fixtures.ts
+  102169a74ef496b1 1-45
+client/file-preview.tsx
+  102169a74ef496b1 1-194,196-232
+client/changes-panel.tsx
+  102169a74ef496b1 1,3-13,15-22,24-25,28,32-80,82,84-94,96,98-327,332-335,337-341,343-348,351-353,363-384,406-422,424-435,437,444-446,453-461,463-508,511-515,521-606,608-621,624-735,737-817,820-862,864-878,881-885,888-1011,1014-1037,1043-1280,1283-1441
+shared/diff-cache.ts
+  102169a74ef496b1 1-51
+server/concurrency.ts
+  102169a74ef496b1 1-37
+client/syntax-text.tsx
+  102169a74ef496b1 1-34
+tests/browser/vite.config.ts
+  102169a74ef496b1 1-12,14-90,95-124
+docs/licenses/vscode-icons-MIT.txt
+  102169a74ef496b1 1-21
+paseo-plugin.json
+  45d58fdb15d4cf0d 1-2,13-16
+  102169a74ef496b1 3-12
+client/settings-select.tsx
+  102169a74ef496b1 1-147
+scripts/verify-installed.ts
+  102169a74ef496b1 1-110
+scripts/benchmark.ts
+  102169a74ef496b1 1-119
+tests/file-content.test.ts
+  102169a74ef496b1 1-7,9-73,75-78
+docs/licenses/codicons-CC-BY-4.0.txt
+  102169a74ef496b1 1-399
+tests/browser/entry.tsx
+  102169a74ef496b1 1-59
+client/use-changes.ts
+  102169a74ef496b1 1-23,26-112,115-202
+client/theme.ts
+  102169a74ef496b1 1-61,64-65
+.github/workflows/check.yml
+  102169a74ef496b1 1-23
+docs/third-party-notices.md
+  102169a74ef496b1 1-15
+client/web-chrome.tsx
+  102169a74ef496b1 1-81,83-88,90-305
+docs/verification.md
+  102169a74ef496b1 1-100
+docs/settings-design.md
+  102169a74ef496b1 1-36
+client/preview-model.ts
+  102169a74ef496b1 2-89,91-217,219-221,223
+server/repositories.ts
+  102169a74ef496b1 1-120,122-162,167,171-175,177,179-181,183-187,189,193-228,231-283,285-307
+scripts/acceptance.ts
+  102169a74ef496b1 1-104
+client/icons.tsx
+  102169a74ef496b1 1-87,90-104
+client/file-menu.tsx
+  102169a74ef496b1 1-129
+scripts/build-assets.ts
+  102169a74ef496b1 1-119
+client/controls.tsx
+  102169a74ef496b1 1-98
+server/service.ts
+  102169a74ef496b1 1-4,7-43,45-54,56-122,124-125
+biome.json
+  102169a74ef496b1 3-11
+  45d58fdb15d4cf0d 1-2,12-33
+tests/editor.test.ts
+  102169a74ef496b1 1-182
+OVERVIEW.md
+  102169a74ef496b1 1,3,5,7-11
+  45d58fdb15d4cf0d 2,4,6
+client/settings-panel.tsx
+  102169a74ef496b1 1-2,4-7,9-523
+client/mermaid-preview.ts
+  102169a74ef496b1 1-49
+client/editor-tabs.tsx
+  102169a74ef496b1 1-14,20-25,31-80,82-207
+shared/contracts.ts
+  102169a74ef496b1 1-120
+client/syntax.ts
+  102169a74ef496b1 1-301
+tests/cache.test.ts
+  102169a74ef496b1 1-55
+server/files.ts
+  102169a74ef496b1 1-141
+README.md
+  45d58fdb15d4cf0d 1-4,9-13,15-17,20,28,31-37,45-49,64-70,72-79,81-84,86-98
+  102169a74ef496b1 5-8,14,18-19,21-27,29-30,38-44,50-63,71,80,85
+tests/concurrency.test.ts
+  102169a74ef496b1 1-42
+index.server.ts
+  102169a74ef496b1 4-9,11-12
+  45d58fdb15d4cf0d 1,14-16,18-19,24-25
+docs/licenses/mermaid-MIT.txt
+  102169a74ef496b1 1-21
+server/generated/mermaid.ts
+  102169a74ef496b1 1-2
+tests/ui-model.test.ts
+  102169a74ef496b1 1-62
+server/diff.ts
+  102169a74ef496b1 1-98
+client/diff-model.ts
+  102169a74ef496b1 1-33
+server/parsers.ts
+  102169a74ef496b1 1-170
+tests/git.test.ts
+  102169a74ef496b1 1-256
+client/generated/icons.ts
+  102169a74ef496b1 1-2
+index.client.tsx
+  45d58fdb15d4cf0d 1-26
+server/git.ts
+  102169a74ef496b1 1-35,37-77
+tests/edge-cases.test.ts
+  102169a74ef496b1 1-128
+tsconfig.json
+  45d58fdb15d4cf0d 1-25
+client/use-panel-settings.ts
+  102169a74ef496b1 1-131,133-149
+OVERVIEW.zh-CN.md
+  102169a74ef496b1 1-11
+shared/settings.ts
+  102169a74ef496b1 1-9,11-18,21-39
+client/diff-viewer.tsx
+  102169a74ef496b1 1-75,77-208,210-457,459-468,470-479,481-527
+tests/browser/index.html
+  102169a74ef496b1 1
+.gitignore
+  45d58fdb15d4cf0d 1-5
+client/editor-model.ts
+  102169a74ef496b1 1-33
+package.json
+  45d58fdb15d4cf0d 1-4,14-25,29-38,42-49,52-55,57-63
+  102169a74ef496b1 5-13,26-28,40-41,50-51
+tests/browser/host.ts
+  102169a74ef496b1 1-23
+client/changes-model.ts
+  102169a74ef496b1 1-139
+docs/vscode-gap-analysis.md
+  102169a74ef496b1 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "fde0543f038772d1c724ecbf3c0026e10bb39520",
+  "prompts": {
+    "102169a74ef496b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a5f0-492d-7750-b5d7-23a2a62617b5",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 10867,
+      "total_deletions": 2659,
+      "accepted_lines": 8243,
+      "overriden_lines": 98,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/44836dcbdccc0b949ce323000c9b56280d6cdf1d6a25332a8c07e7823ed1fe4c",
+      "token_usage": {
+        "input_tokens": 791218,
+        "output_tokens": 319868,
+        "cache_read_tokens": 38239104,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "45d58fdb15d4cf0d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a5ef-c043-7d22-a91a-d62270c1b73e",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 217,
+      "total_deletions": 0,
+      "accepted_lines": 200,
+      "overriden_lines": 5,
+      "token_usage": {
+        "input_tokens": 7668,
+        "output_tokens": 418,
+        "cache_read_tokens": 21760,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
