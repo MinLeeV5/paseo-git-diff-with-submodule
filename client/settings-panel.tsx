@@ -2,6 +2,8 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { createElement, useRef, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { PanelSettings } from "../shared/settings";
+import { MAX_CACHED_TABS } from "../shared/tab-cache";
+import { pluginVersion } from "../shared/version";
 import { setWebTitle, ToolButton } from "./controls";
 import { Icon } from "./icons";
 import { SettingsSelect } from "./settings-select";
@@ -437,7 +439,6 @@ export function SettingsPanel({
                 {segmented("mode", "差异布局", [
                   { value: "split", label: "左右" },
                   { value: "unified", label: "统一" },
-                  { value: "patch", label: "补丁" },
                 ])}
                 {select("context", "上下文", [
                   { value: 3, label: "3 行" },
@@ -448,7 +449,19 @@ export function SettingsPanel({
               </>
             ) : (
               <>
-                {section("文件预览", true)}
+                {section("标签缓存", true)}
+                {select(
+                  "tabCacheSize",
+                  "缓存标签数量",
+                  Array.from({ length: MAX_CACHED_TABS }, (_, index) => ({
+                    value: index + 1,
+                    label: `${index + 1} 个${index === 4 ? " · 默认" : ""}`,
+                  })),
+                )}
+                <Text style={hintStyle}>
+                  保留最近访问标签的内容和滚动位置；大文件或图表较多时会提前释放较早的缓存。
+                </Text>
+                {section("文件预览")}
                 {toggle("previewDefault", "优先打开预览", "适用于 Markdown、HTML 和图片。")}
                 <Text style={hintStyle}>
                   Markdown 支持 Mermaid。在文件工具栏随时切换预览与差异。
@@ -513,6 +526,15 @@ export function SettingsPanel({
               style={{ color: c.foregroundMuted, fontSize: 11, flex: 1 }}
             >
               {saving ? "正在保存…" : error ? "尚未保存" : "已保存"}
+            </Text>
+            <Text
+              testID="git-plugin-version"
+              ref={(node) => setWebTitle(node, `Git Diff with Submodules v${pluginVersion}`)}
+              accessibilityLabel={`插件版本 ${pluginVersion}`}
+              selectable
+              style={{ color: c.foregroundMuted, fontSize: 11, fontVariant: ["tabular-nums"] }}
+            >
+              v{pluginVersion}
             </Text>
             <ToolButton theme={theme} label="恢复默认设置" text="恢复默认" onPress={reset} />
           </View>

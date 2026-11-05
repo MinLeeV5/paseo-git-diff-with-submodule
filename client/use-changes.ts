@@ -130,7 +130,8 @@ export function useFileDiff(
   } | null,
 ) {
   const call = useRpc(fileDiffRpc);
-  const [cache] = useState(() => new DiffCache(4 * 1024 * 1024, 16));
+  // Each retained Tab owns one current patch. Evicting its pane releases the cache.
+  const [cache] = useState(() => new DiffCache(4 * 1024 * 1024, 1));
   const pending = useRef(new Map<string, Promise<FileDiff>>());
   const [attempt, setAttempt] = useState(0);
   const key = JSON.stringify(input);

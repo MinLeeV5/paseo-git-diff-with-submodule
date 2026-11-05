@@ -1,9 +1,16 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { type PluginWorkspacePanelProps, useRpc, useWorkspace } from "@getpaseo/plugin/client";
+import {
+  openExternalUrl,
+  type PluginWorkspacePanelProps,
+  useRpc,
+  useWorkspace,
+} from "@getpaseo/plugin/client";
+import { copyText } from "@getpaseo/plugin/client/react-native";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,7 +18,14 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { type FileChange, fileCapabilitiesRpc, revealFileRpc } from "../shared/contracts";
+import {
+  type FileChange,
+  fileCapabilitiesRpc,
+  resolveLinkRpc,
+  revealFileRpc,
+} from "../shared/contracts";
+import { parsePreviewLink } from "../shared/preview-links";
+import type { TabStats } from "../shared/tab-cache";
 import {
   buildChangeRows,
   type ChangeRow,
@@ -20,16 +34,17 @@ import {
   statusLabels,
 } from "./changes-model";
 import { setWebTitle, ToolButton } from "./controls";
-import { DiffViewer } from "./diff-viewer";
-import { closeTab, openTab, type TabsState } from "./editor-model";
+import { type CloseTabs, closeTabs, openTab, type TabsState } from "./editor-model";
 import { EditorTabs } from "./editor-tabs";
-import { FileMenu, type FileMenuTarget } from "./file-menu";
-import { FilePreview } from "./file-preview";
+import { FileMenu, type FileMenuItem, type FileMenuTarget } from "./file-menu";
+import { filePaths } from "./file-paths";
 import { fileAppearance, Icon } from "./icons";
 import { previewKind } from "./preview-model";
 import { SettingsPanel } from "./settings-panel";
-import { codeFont, panelTokens } from "./theme";
-import { useChanges, useFileDiff } from "./use-changes";
+import { TabCache } from "./tab-cache";
+import { TabEditor } from "./tab-editor";
+import { panelTokens } from "./theme";
+import { useChanges } from "./use-changes";
 import { usePanelSettings } from "./use-panel-settings";
 import { ScrollbarStyle, SidebarResizer } from "./web-chrome";
 
@@ -67,6 +82,7 @@ export function ChangesPanel(props: PluginWorkspacePanelProps) {
 }
 
 type Styles = ReturnType<typeof makeStyles>;
+const INITIAL_HUNK_NAVIGATION = { index: 0, request: 0 };
 const ChangeItem = memo(function ChangeItem({
   item,
   styles,
@@ -347,11 +363,20 @@ function WorkspaceEditor({
   const compact = hostCompact || (width !== null && width < 720);
   const [page, setPage] = useState<"changes" | "diff">("changes");
   const { values: settings, update: updateSettings } = preferences;
-  const { comparison, tree, automatic, mode, context, ignoreWhitespace, wrap } = settings;
+  const { comparison, tree, automatic, mode, context, ignoreWhitespace } = settings;
   const [filter, setFilter] = useState("");
   const query = useDeferredValue(filter.trim().toLocaleLowerCase());
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [tabs, setTabs] = useState<TabsState>({ tabs: [], active: null });
+  const [linkedFiles, setLinkedFiles] = useState<
+    Record<string, { repositoryId: string; path: string; version: string }>
+  >({});
+  const [previewNavigation, setPreviewNavigation] = useState<{
+    key: string;
+    fragment: string;
+    request: number;
+  } | null>(null);
+  const navigationRequest = useRef(0);
   const [focusedFile, setFocusedFile] = useState<string | null>(null);
   const initialized = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -360,6 +385,7 @@ function WorkspaceEditor({
   const [fileAction, setFileAction] = useState<string | null>(null);
   const getCapabilities = useRpc(fileCapabilitiesRpc);
   const revealFile = useRpc(revealFileRpc);
+  const resolveLink = useRpc(resolveLinkRpc);
   const [capabilities, setCapabilities] = useState({
     reveal: false,
     label: "在文件管理器中显示",
@@ -377,8 +403,19 @@ function WorkspaceEditor({
       stopped = true;
     };
   }, [getCapabilities]);
-  const [activeHunk, setActiveHunk] = useState(0);
-  const [hunkRequest, setHunkRequest] = useState(0);
+  const [editorStats, setEditorStats] = useState<Record<string, TabStats>>({});
+  const [hunkPositions, setHunkPositions] = useState<
+    Record<string, { view: string; index: number; request: number }>
+  >({});
+  const recordStats = useCallback((key: string, stats: TabStats) => {
+    setEditorStats((previous) =>
+      previous[key]?.bytes === stats.bytes &&
+      previous[key]?.hunks === stats.hunks &&
+      previous[key]?.view === stats.view
+        ? previous
+        : { ...previous, [key]: stats },
+    );
+  }, []);
   const panelRef = useRef<View>(null);
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<ChangeRow>>(null);
@@ -437,12 +474,53 @@ function WorkspaceEditor({
     () => model.rows.flatMap((row, index) => (row.kind === "repository" ? [index] : [])),
     [model.rows],
   );
-  const selected = tabs.active ? model.lookup.get(tabs.active) : undefined;
   const selectedKey = tabs.active;
+  const linked = selectedKey ? linkedFiles[selectedKey] : undefined;
+  const linkedPath = linked?.path;
+  const linkedId = linked?.repositoryId;
+  useEffect(() => {
+    if (!selectedKey || !linkedPath || !linkedId) return;
+    let stopped = false;
+    void resolveLink({
+      directory,
+      repositoryId: linkedId,
+      path: linkedPath,
+      href: `./${encodeURIComponent(linkedPath.split("/").at(-1) ?? "")}`,
+    }).then(
+      (target) => {
+        if (stopped) return;
+        setLinkedFiles((previous) =>
+          previous[selectedKey] && previous[selectedKey].version !== target.version
+            ? { ...previous, [selectedKey]: target }
+            : previous,
+        );
+      },
+      (error: unknown) => {
+        if (!stopped)
+          setFileAction(
+            `无法检查文件最新状态：${error instanceof Error ? error.message : String(error)}`,
+          );
+      },
+    );
+    return () => {
+      stopped = true;
+    };
+  }, [directory, selectedKey, linkedPath, linkedId, resolveLink]);
+  const linkedRepository = linked
+    ? repositories?.find((repo) => repo.id === linked.repositoryId)
+    : undefined;
+  const selected =
+    (selectedKey ? model.lookup.get(selectedKey) : undefined) ??
+    (linked && linkedRepository
+      ? {
+          repository: linkedRepository,
+          file: { path: linked.path, version: linked.version, oldPath: undefined },
+        }
+      : undefined);
   const currentTab = tabs.tabs.find((tab) => tab.key === tabs.active);
-  const kind = selected ? previewKind(selected.file.path) : null;
+  const kind = selected ? (previewKind(selected.file.path) ?? (linked ? "code" : null)) : null;
   const preview = Boolean(
-    kind && selectedKey && (previews[selectedKey] ?? settings.previewDefault),
+    kind && selectedKey && (linked || (previews[selectedKey] ?? settings.previewDefault)),
   );
   useEffect(() => {
     if (!initialized.current && model.entries.length) {
@@ -458,29 +536,16 @@ function WorkspaceEditor({
         ? "unified"
         : mode
       : mode;
-  const patch = useFileDiff(
-    selected && !preview
-      ? {
-          directory,
-          repositoryId: selected.repository.id,
-          path: selected.file.path,
-          version: selected.file.version,
-          comparison,
-          context,
-          ignoreWhitespace,
-        }
-      : null,
+  const viewKey = JSON.stringify([selected?.file.version, comparison, context, ignoreWhitespace]);
+  const currentStats = selectedKey ? editorStats[selectedKey] : undefined;
+  const hunkCount = currentStats?.view === viewKey ? currentStats.hunks : 0;
+  const position = selectedKey ? hunkPositions[selectedKey] : undefined;
+  const hunkIndex = Math.min(
+    position?.view === viewKey ? position.index : 0,
+    Math.max(0, hunkCount - 1),
   );
-  const patchKey = `${selectedKey}:${comparison}:${context}:${ignoreWhitespace}`;
-  useEffect(() => {
-    if (patchKey) setActiveHunk(0);
-  }, [patchKey]);
-  const hunkCount = patch.data?.hunks.length ?? 0;
-  const hunkIndex = Math.min(activeHunk, Math.max(0, hunkCount - 1));
-  const hunkTarget = useMemo(
-    () => ({ index: hunkIndex, request: hunkRequest }),
-    [hunkIndex, hunkRequest],
-  );
+  const hunkRequest = position?.request ?? 0;
+  const hunkTarget = position?.view === viewKey ? position : INITIAL_HUNK_NAVIGATION;
   const visibleFiles = useMemo(() => model.rows.filter((row) => row.kind === "file"), [model.rows]);
   const fileIndex = visibleFiles.findIndex((row) => row.key === (focusedFile ?? selectedKey));
   const toggle = useCallback(
@@ -497,6 +562,14 @@ function WorkspaceEditor({
     (repositoryId: string, path: string) => {
       const entry = model.lookup.get(entryKey(repositoryId, path));
       if (!entry) return;
+      navigationRequest.current++;
+      setPreviewNavigation(null);
+      setLinkedFiles((previous) => {
+        if (!previous[entryKey(repositoryId, path)]) return previous;
+        const next = { ...previous };
+        delete next[entryKey(repositoryId, path)];
+        return next;
+      });
       setTabs((state) => openTab(state, entry));
       setFocusedFile(entryKey(repositoryId, path));
       setPage("diff");
@@ -520,19 +593,35 @@ function WorkspaceEditor({
     }
   }
   function moveHunk(delta: number) {
-    if (hunkCount) {
-      setActiveHunk((value) => (Math.min(value, hunkCount - 1) + delta + hunkCount) % hunkCount);
-      setHunkRequest((value) => value + 1);
-    }
+    if (hunkCount && selectedKey)
+      setHunkPositions((previous) => ({
+        ...previous,
+        [selectedKey]: {
+          view: viewKey,
+          index: (hunkIndex + delta + hunkCount) % hunkCount,
+          request: hunkRequest + 1,
+        },
+      }));
   }
-  function closeFile(key: string) {
-    setTabs((state) => closeTab(state, key));
+  function closeFile(key: string, action: CloseTabs = "close") {
+    navigationRequest.current++;
+    const nextTabs = closeTabs(tabs, key, action);
+    const kept = new Set(nextTabs.tabs.map((tab) => tab.key));
+    setTabs(nextTabs);
     setFocusedFile(null);
     setPreviews((previous) => {
-      const next = { ...previous };
-      delete next[key];
-      return next;
+      return Object.fromEntries(Object.entries(previous).filter(([key]) => kept.has(key)));
     });
+    setLinkedFiles((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([key]) => kept.has(key))),
+    );
+    setPreviewNavigation((previous) => (previous && kept.has(previous.key) ? previous : null));
+    setEditorStats((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([key]) => kept.has(key))),
+    );
+    setHunkPositions((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([key]) => kept.has(key))),
+    );
     panelRef.current?.focus();
   }
   function onKeyDown(event: {
@@ -564,6 +653,7 @@ function WorkspaceEditor({
       closeFile(selectedKey);
     } else if (event.ctrlKey && ["PageUp", "PageDown"].includes(event.key) && tabs.tabs.length) {
       event.preventDefault();
+      navigationRequest.current++;
       const index = tabs.tabs.findIndex((tab) => tab.key === selectedKey);
       const next =
         tabs.tabs[
@@ -631,7 +721,7 @@ function WorkspaceEditor({
       sidebarWidth: Math.round(Math.max(180, Math.min(600, (width ?? 1000) - 360, value))),
     });
   }
-  async function reveal(target: { repositoryId: string; path: string }) {
+  async function reveal(target: { repositoryId: string; path: string }, scope?: "workspace") {
     setMenu(null);
     setFileAction(null);
     try {
@@ -640,11 +730,151 @@ function WorkspaceEditor({
         comparison,
         repositoryId: target.repositoryId,
         path: target.path,
+        scope:
+          scope ??
+          (linkedFiles[entryKey(target.repositoryId, target.path)] ? "workspace" : "changes"),
       });
-      setFileAction(result.directory ? "文件已删除，已定位到所在目录。" : null);
+      setFileAction(result.directory && !scope ? "文件已删除，已定位到所在目录。" : null);
     } catch (error) {
       setFileAction(error instanceof Error ? error.message : String(error));
     }
+  }
+  async function copyPath(target: FileMenuTarget, relative: boolean) {
+    setFileAction(null);
+    const repository = repositories?.find((repo) => repo.id === target.repositoryId);
+    if (!repository) return;
+    const paths = filePaths(repository, target.path);
+    try {
+      await copyText(relative ? paths.relative : paths.absolute);
+    } catch (error) {
+      setFileAction(`复制失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  async function navigatePreview(href: string) {
+    const link = parsePreviewLink(href);
+    if (!link || !selected) return;
+    setFileAction(null);
+    const request = ++navigationRequest.current;
+    if (link.kind === "web") {
+      try {
+        await (link.url.startsWith("mailto:")
+          ? Linking.openURL(link.url)
+          : openExternalUrl(link.url));
+      } catch (error) {
+        setFileAction(`打开链接失败：${error instanceof Error ? error.message : String(error)}`);
+      }
+      return;
+    }
+    if (link.kind === "anchor") {
+      setPreviewNavigation({ key: selectedKey ?? "", fragment: link.fragment, request });
+      return;
+    }
+    try {
+      const target = await resolveLink({
+        directory,
+        repositoryId: selected.repository.id,
+        path: selected.file.path,
+        href,
+      });
+      if (request !== navigationRequest.current) return;
+      if (target.kind === "directory") {
+        await reveal(target, "workspace");
+        return;
+      }
+      const repository = repositories?.find((repo) => repo.id === target.repositoryId);
+      if (!repository) throw new Error("链接所属仓库已变化，请刷新后重试。");
+      const key = entryKey(target.repositoryId, target.path);
+      initialized.current = true;
+      setLinkedFiles((previous) => ({ ...previous, [key]: target }));
+      setTabs((state) => openTab(state, { repository, file: target }));
+      setFocusedFile(key);
+      setPreviewNavigation({ key, fragment: target.fragment, request });
+      setPage("diff");
+    } catch (error) {
+      if (request === navigationRequest.current)
+        setFileAction(error instanceof Error ? error.message : String(error));
+    }
+  }
+  function menuItems(target: FileMenuTarget): FileMenuItem[] {
+    const items: FileMenuItem[] = [
+      {
+        key: "copy",
+        label: "复制路径",
+        icon: "copy",
+        onPress: () => {
+          void copyPath(target, false);
+        },
+      },
+      {
+        key: "copy-relative",
+        label: "复制相对路径",
+        icon: "copy",
+        onPress: () => {
+          void copyPath(target, true);
+        },
+      },
+      {
+        key: "reveal",
+        label: capabilities.label,
+        icon: "reveal",
+        separator: true,
+        disabled: !capabilities.reveal,
+        onPress: () => {
+          void reveal(target);
+        },
+      },
+    ];
+    if (previewKind(target.path))
+      items.push({
+        key: "preview",
+        label: "打开文件预览",
+        icon: "preview",
+        onPress: () => {
+          const key = entryKey(target.repositoryId, target.path);
+          if (tabs.tabs.some((tab) => tab.key === key)) {
+            navigationRequest.current++;
+            setTabs((state) => ({ ...state, active: key }));
+            setPage("diff");
+          } else selectFile(target.repositoryId, target.path);
+          setPreviews((previous) => ({ ...previous, [key]: true }));
+        },
+      });
+    if (target.tabKey) {
+      const key = target.tabKey;
+      const index = tabs.tabs.findIndex((tab) => tab.key === key);
+      items.push(
+        {
+          key: "close",
+          label: "关闭",
+          icon: "close",
+          separator: true,
+          onPress: () => closeFile(key),
+        },
+        {
+          key: "others",
+          label: "关闭其他",
+          icon: "closeAll",
+          disabled: tabs.tabs.length < 2,
+          onPress: () => closeFile(key, "others"),
+        },
+        {
+          key: "right",
+          label: "关闭右侧",
+          icon: "pointer",
+          disabled: index < 0 || index === tabs.tabs.length - 1,
+          onPress: () => closeFile(key, "right"),
+        },
+        {
+          key: "left",
+          label: "关闭左侧",
+          icon: "back",
+          disabled: index <= 0,
+          onPress: () => closeFile(key, "left"),
+        },
+        { key: "all", label: "关闭全部", icon: "closeAll", onPress: () => closeFile(key, "all") },
+      );
+    }
+    return items;
   }
   return (
     <View
@@ -672,20 +902,20 @@ function WorkspaceEditor({
         <FileMenu
           target={menu}
           theme={theme}
-          revealLabel={capabilities.label}
-          canReveal={capabilities.reveal}
-          canPreview={Boolean(previewKind(menu.path))}
+          items={menuItems(menu)}
           onClose={() => setMenu(null)}
-          onReveal={() => {
-            void reveal(menu);
-          }}
-          onPreview={() => {
-            const key = entryKey(menu.repositoryId, menu.path);
-            selectFile(menu.repositoryId, menu.path);
-            setPreviews((previous) => ({ ...previous, [key]: true }));
-            setMenu(null);
-          }}
         />
+      ) : null}
+      {fileAction ? (
+        <View accessibilityRole="alert" style={styles.error}>
+          <Text style={[styles.small, styles.fileName]}>{fileAction}</Text>
+          <ToolButton
+            theme={theme}
+            label="关闭文件操作提示"
+            icon="close"
+            onPress={() => setFileAction(null)}
+          />
+        </View>
       ) : null}
       <View style={styles.body}>
         {(!compact && settings.sidebarVisible) || (compact && page === "changes") ? (
@@ -864,195 +1094,169 @@ function WorkspaceEditor({
             theme={theme}
           />
         ) : null}
-        {!compact || page === "diff" ? (
-          <View style={styles.content}>
-            <View style={styles.editorTitlebar}>
-              <EditorTabs
-                tabs={tabs.tabs}
-                active={tabs.active}
-                theme={theme}
-                onSelect={(key) => {
-                  setTabs((state) => ({ ...state, active: key }));
-                  setFocusedFile(key);
-                }}
-                onClose={closeFile}
-                compact={compact}
-                sidebarVisible={settings.sidebarVisible}
-                onToggleSidebar={() =>
-                  compact
-                    ? setPage("changes")
-                    : updateSettings({ sidebarVisible: !settings.sidebarVisible })
-                }
-                onSettings={() => setShowSettings(true)}
-                settingsError={Boolean(preferences.error)}
-              />
-            </View>
-            {fileAction ? (
-              <View accessibilityRole="alert" style={styles.error}>
-                <Text style={[styles.small, styles.fileName]}>{fileAction}</Text>
-                <ToolButton
-                  theme={theme}
-                  label="关闭文件操作提示"
-                  icon="close"
-                  onPress={() => setFileAction(null)}
-                />
-              </View>
-            ) : null}
-            {selected ? (
-              <>
-                <View style={styles.diffToolbar}>
-                  <View
-                    style={[styles.inline, styles.fileName]}
-                    {...(Platform.OS === "web"
-                      ? {
-                          title: `${selected.repository.directory}/${selected.file.path}\n${baseline.from} → ${baseline.to} · 只读`,
-                        }
-                      : {})}
-                  >
-                    <Icon
-                      name={selected.repository.parentId ? "repository" : "file"}
-                      size={12}
-                      color={colors.foregroundMuted}
-                    />
-                    <Text numberOfLines={1} style={[styles.small, styles.fileName]}>
-                      {displayPath(selected.repository.relativePath || name)} /{" "}
-                      {displayPath(selected.file.path)}
-                    </Text>
-                  </View>
-                  {kind ? (
-                    <ToolButton
-                      theme={theme}
-                      label={
-                        preview
-                          ? "查看文件差异"
-                          : `预览 ${kind === "markdown" ? "Markdown" : kind === "html" ? "HTML" : "图片"} · ${baseline.to}`
+        <View
+          ref={(node) => {
+            if (Platform.OS !== "web" || !node) return;
+            const element = node as unknown as { style: { visibility: string }; inert: boolean };
+            element.style.visibility = compact && page !== "diff" ? "hidden" : "visible";
+            element.inert = compact && page !== "diff";
+          }}
+          accessibilityElementsHidden={compact && page !== "diff"}
+          importantForAccessibility={compact && page !== "diff" ? "no-hide-descendants" : "auto"}
+          pointerEvents={compact && page !== "diff" ? "none" : "auto"}
+          style={[
+            styles.content,
+            compact && page !== "diff" && { position: "absolute", inset: 0, opacity: 0 },
+          ]}
+        >
+          <View style={styles.editorTitlebar}>
+            <EditorTabs
+              tabs={tabs.tabs}
+              active={tabs.active}
+              theme={theme}
+              onSelect={(key) => {
+                navigationRequest.current++;
+                setTabs((state) => ({ ...state, active: key }));
+                setFocusedFile(key);
+              }}
+              onClose={closeFile}
+              onContextMenu={setMenu}
+              compact={compact}
+              sidebarVisible={settings.sidebarVisible}
+              onToggleSidebar={() =>
+                compact
+                  ? setPage("changes")
+                  : updateSettings({ sidebarVisible: !settings.sidebarVisible })
+              }
+              onSettings={() => setShowSettings(true)}
+              settingsError={Boolean(preferences.error)}
+            />
+          </View>
+          {selected ? (
+            <>
+              <View style={styles.diffToolbar}>
+                <View
+                  style={[styles.inline, styles.fileName]}
+                  {...(Platform.OS === "web"
+                    ? {
+                        title: `${selected.repository.directory}/${selected.file.path}\n${linked ? "工作目录文件" : `${baseline.from} → ${baseline.to}`} · 只读`,
                       }
-                      icon={preview ? "code" : "preview"}
-                      active={preview}
-                      onPress={() =>
-                        setPreviews((previous) => ({ ...previous, [selectedKey || ""]: !preview }))
-                      }
-                    />
-                  ) : null}
-                  {!preview ? (
-                    <>
-                      <ToolButton
-                        theme={theme}
-                        label={`当前${effectiveMode === "split" ? "左右对比，切换为统一对比" : effectiveMode === "unified" ? "统一对比，切换为原始补丁" : "原始补丁，切换为对比视图"}`}
-                        icon={
-                          effectiveMode === "split"
-                            ? "split"
-                            : effectiveMode === "unified"
-                              ? "unified"
-                              : "code"
-                        }
-                        onPress={() =>
-                          updateSettings({
-                            mode:
-                              effectiveMode === "split"
-                                ? "unified"
-                                : effectiveMode === "unified"
-                                  ? "patch"
-                                  : compact ||
-                                      (width !== null &&
-                                        width -
-                                          (settings.sidebarVisible ? settings.sidebarWidth : 0) <
-                                          650)
-                                    ? "unified"
-                                    : "split",
-                          })
-                        }
-                      />
-                      <ToolButton
-                        theme={theme}
-                        label={`上一个差异块（Shift+F7）· ${hunkCount ? hunkIndex + 1 : 0}/${hunkCount}`}
-                        icon="up"
-                        disabled={!hunkCount || mode === "patch"}
-                        onPress={() => moveHunk(-1)}
-                      />
-                      <ToolButton
-                        theme={theme}
-                        label={`下一个差异块（F7）· ${hunkCount ? hunkIndex + 1 : 0}/${hunkCount}`}
-                        icon="down"
-                        disabled={!hunkCount || mode === "patch"}
-                        onPress={() => moveHunk(1)}
-                      />
-                    </>
-                  ) : null}
+                    : {})}
+                >
+                  <Icon
+                    name={selected.repository.parentId ? "repository" : "file"}
+                    size={12}
+                    color={colors.foregroundMuted}
+                  />
+                  <Text numberOfLines={1} style={[styles.small, styles.fileName]}>
+                    {displayPath(selected.repository.relativePath || name)} /{" "}
+                    {displayPath(selected.file.path)}
+                  </Text>
                 </View>
-                {selected.file.oldPath ? (
-                  <View style={styles.rename}>
-                    <Text selectable style={styles.small}>
-                      重命名：{displayPath(selected.file.oldPath)} →{" "}
-                      {displayPath(selected.file.path)}
-                    </Text>
-                  </View>
-                ) : null}
-                {selected.repository.recordedHead &&
-                selected.repository.head &&
-                selected.repository.recordedHead !== selected.repository.head ? (
-                  <View style={styles.rename}>
-                    <Icon name="pointer" size={12} color={colors.statusWarning} />
-                    <Text style={styles.small}>
-                      子模块指针 {selected.repository.recordedHead.slice(0, 7)} →{" "}
-                      {selected.repository.head.slice(0, 7)} · 以下比较子仓自身 {baseline.from}
-                    </Text>
-                  </View>
-                ) : null}
-                {preview && kind ? (
-                  <FilePreview
-                    directory={directory}
-                    repositoryId={selected.repository.id}
-                    path={selected.file.path}
-                    version={selected.file.version}
-                    comparison={comparison}
-                    kind={kind}
+                {linked ? <Text style={styles.small}>工作目录文件</Text> : null}
+                {kind && (!linked || (selectedKey && model.lookup.has(selectedKey))) ? (
+                  <ToolButton
                     theme={theme}
-                    fontSize={settings.fontSize}
-                    fontFamily={codeFont(settings)}
-                    fontWeight={settings.fontWeight}
+                    label={
+                      preview
+                        ? "查看文件差异"
+                        : `预览 ${kind === "markdown" ? "Markdown" : kind === "html" ? "HTML" : "图片"} · ${baseline.to}`
+                    }
+                    icon={preview ? "code" : "preview"}
+                    active={preview}
+                    onPress={() => {
+                      if (linked && selectedKey)
+                        setLinkedFiles((previous) => {
+                          const next = { ...previous };
+                          delete next[selectedKey];
+                          return next;
+                        });
+                      setPreviews((previous) => ({ ...previous, [selectedKey || ""]: !preview }));
+                    }}
                   />
-                ) : patch.error ? (
-                  <View accessibilityRole="alert" style={styles.loading}>
-                    <Icon name="warning" color={colors.statusDanger} size={26} />
-                    <Text selectable style={styles.muted}>
-                      {patch.error}
-                    </Text>
+                ) : null}
+                {!preview ? (
+                  <>
                     <ToolButton
                       theme={theme}
-                      label="重试读取差异"
-                      text="重试"
-                      icon="refresh"
-                      onPress={patch.retry}
+                      label={`当前${effectiveMode === "split" ? "左右对比，切换为统一对比" : "统一对比，切换为左右对比"}`}
+                      icon={effectiveMode === "split" ? "split" : "unified"}
+                      onPress={() =>
+                        updateSettings({
+                          mode: mode === "split" ? "unified" : "split",
+                        })
+                      }
                     />
-                  </View>
-                ) : patch.data ? (
-                  <DiffViewer
-                    key={`${selectedKey}:${comparison}`}
-                    diff={patch.data}
-                    theme={theme}
-                    mode={effectiveMode}
-                    wrap={wrap}
-                    syntaxHighlight={settings.syntaxHighlight}
-                    fontSize={settings.fontSize}
-                    fontFamily={codeFont(settings)}
-                    fontWeight={settings.fontWeight}
-                    splitRatio={settings.splitRatio}
-                    onSplitRatioChange={(splitRatio) => updateSettings({ splitRatio })}
-                    onSplitRatioCommit={preferences.flush}
-                    tabSize={settings.tabSize}
-                    lineNumbers={settings.lineNumbers}
-                    navigation={hunkTarget}
-                    from={baseline.from}
-                    to={baseline.to}
-                  />
-                ) : (
-                  <View style={styles.loading}>
-                    <ActivityIndicator size="small" color={colors.accent} />
-                    <Text style={styles.muted}>正在读取文件差异…</Text>
-                  </View>
-                )}
-              </>
+                    <ToolButton
+                      theme={theme}
+                      label={`上一个差异块（Shift+F7）· ${hunkCount ? hunkIndex + 1 : 0}/${hunkCount}`}
+                      icon="up"
+                      disabled={!hunkCount}
+                      onPress={() => moveHunk(-1)}
+                    />
+                    <ToolButton
+                      theme={theme}
+                      label={`下一个差异块（F7）· ${hunkCount ? hunkIndex + 1 : 0}/${hunkCount}`}
+                      icon="down"
+                      disabled={!hunkCount}
+                      onPress={() => moveHunk(1)}
+                    />
+                  </>
+                ) : null}
+              </View>
+              {selected.file.oldPath ? (
+                <View style={styles.rename}>
+                  <Text selectable style={styles.small}>
+                    重命名：{displayPath(selected.file.oldPath)} → {displayPath(selected.file.path)}
+                  </Text>
+                </View>
+              ) : null}
+              {selected.repository.recordedHead &&
+              selected.repository.head &&
+              selected.repository.recordedHead !== selected.repository.head ? (
+                <View style={styles.rename}>
+                  <Icon name="pointer" size={12} color={colors.statusWarning} />
+                  <Text style={styles.small}>
+                    子模块指针 {selected.repository.recordedHead.slice(0, 7)} →{" "}
+                    {selected.repository.head.slice(0, 7)} · 以下比较子仓自身 {baseline.from}
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+          <TabCache
+            active={selectedKey}
+            open={tabs.tabs.map((tab) => tab.key)}
+            limit={settings.tabCacheSize}
+            stats={editorStats}
+          >
+            {selected && selectedKey ? (
+              <TabEditor
+                tabKey={selectedKey}
+                directory={directory}
+                repositoryId={selected.repository.id}
+                path={selected.file.path}
+                version={selected.file.version}
+                comparison={comparison}
+                linked={Boolean(linked)}
+                preview={preview}
+                kind={kind}
+                settings={settings}
+                theme={theme}
+                mode={effectiveMode}
+                navigation={hunkTarget}
+                previewNavigation={
+                  previewNavigation?.key === selectedKey ? previewNavigation : undefined
+                }
+                onNavigate={(href) => {
+                  void navigatePreview(href);
+                }}
+                onStats={recordStats}
+                onSplitRatioChange={(splitRatio) => updateSettings({ splitRatio })}
+                onSplitRatioCommit={preferences.flush}
+                from={baseline.from}
+                to={baseline.to}
+              />
             ) : currentTab ? (
               <View style={styles.emptyState}>
                 <Icon name="file" size={32} color={colors.foregroundMuted} />
@@ -1113,8 +1317,8 @@ function WorkspaceEditor({
                 ) : null}
               </View>
             )}
-          </View>
-        ) : null}
+          </TabCache>
+        </View>
       </View>
       <View style={styles.statusbar}>
         <View style={[styles.inline, styles.fileName]}>

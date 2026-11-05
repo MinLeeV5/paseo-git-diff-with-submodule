@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { closeTab, openTab, type TabsState } from "../client/editor-model";
+import { closeTab, closeTabs, openTab, type TabsState } from "../client/editor-model";
+import { filePaths } from "../client/file-paths";
 import { hasMermaid } from "../client/mermaid-preview";
 import { markdownHtml, previewDocument } from "../client/preview-model";
 import { diffSyntaxStates, languageForPath, tokenizeLine } from "../client/syntax";
@@ -54,6 +55,42 @@ describe("editor tabs", () => {
     expect(state.tabs.find((tab) => tab.key === state.active)?.path).toBe("a.ts");
     state = closeTab(state, state.active ?? "");
     expect(state).toEqual({ tabs: [], active: null });
+  });
+  it("applies bulk closes to the context tab while preserving or replacing the active tab", () => {
+    let state: TabsState = { tabs: [], active: null };
+    for (const path of ["a.ts", "b.ts", "c.ts", "d.ts"]) state = openTab(state, entry(".", path));
+    const [a, b, c, d] = state.tabs;
+    expect(closeTabs(state, b.key, "right")).toEqual({ tabs: [a, b], active: b.key });
+    expect(closeTabs(state, c.key, "left")).toEqual({ tabs: [c, d], active: d.key });
+    expect(closeTabs({ ...state, active: a.key }, c.key, "left")).toEqual({
+      tabs: [c, d],
+      active: c.key,
+    });
+    expect(closeTabs(state, b.key, "others")).toEqual({ tabs: [b], active: b.key });
+    expect(closeTabs(state, b.key, "close")).toEqual({ tabs: [a, c, d], active: d.key });
+    expect(closeTabs(state, b.key, "all")).toEqual({ tabs: [], active: null });
+    expect(closeTabs(state, "stale", "others")).toBe(state);
+    expect(closeTabs(state, a.key, "left")).toBe(state);
+    expect(closeTabs(state, d.key, "right")).toBe(state);
+  });
+  it("copies workspace-relative paths including submodules and native absolute paths", () => {
+    expect(filePaths({ directory: "/workspace/", relativePath: "" }, "docs/a b.md")).toEqual({
+      absolute: "/workspace/docs/a b.md",
+      relative: "docs/a b.md",
+    });
+    expect(
+      filePaths(
+        { directory: "/workspace/modules/child", relativePath: "modules/child" },
+        "src/a.ts",
+      ),
+    ).toEqual({
+      absolute: "/workspace/modules/child/src/a.ts",
+      relative: "modules/child/src/a.ts",
+    });
+    expect(filePaths({ directory: "C:\\workspace\\", relativePath: "." }, "docs/a.md")).toEqual({
+      absolute: "C:\\workspace\\docs\\a.md",
+      relative: "docs/a.md",
+    });
   });
 });
 describe("language highlighting", () => {
@@ -116,7 +153,7 @@ describe("file preview", () => {
     const html = markdownHtml(
       "# Title\n\n| Name | Value |\n| --- | --- |\n| test | **yes** |\n\n- [x] done\n\n> note\n\n```ts\nconst x = 1;\n```\n",
     );
-    expect(html).toContain("<h1>Title</h1>");
+    expect(html).toContain('<h1 id="title">Title</h1>');
     expect(html).toContain("<table>");
     expect(html).toContain("<strong>yes</strong>");
     expect(html).toContain("disabled checked");
@@ -131,6 +168,51 @@ describe("file preview", () => {
     expect(html).not.toContain("<img ");
     expect(html).not.toContain('href="javascript:');
     expect(html).toContain("&lt;script&gt;");
+  });
+  it("renders inline code inside file links without leaking placeholders", () => {
+    const html = markdownHtml(
+      "入口为项目 skill [`remote-device-lab`](../.harness/skills/remote-device-lab/SKILL.md)：\n\n[`**literal**`](javascript:bad) [**网页**](https://example.com/a_(b))\n\n[space](<./a b.md>)",
+    );
+    expect(html).toContain(
+      'href="../.harness/skills/remote-device-lab/SKILL.md" rel="noreferrer noopener"><code>remote-device-lab</code></a>',
+    );
+    expect(html).toContain("<code>**literal**</code>");
+    expect(html).toContain('href="https://example.com/a_(b)"');
+    expect(html).toContain('href="./a b.md"');
+    expect(html).not.toMatch(/[\uE000\uE001]/);
+    expect(html).not.toContain("javascript:");
+  });
+  it("supports stable Unicode heading anchors and escaped web autolinks", () => {
+    const html = markdownHtml(
+      "# 安装 与 `运行`\n\n# 安装 与 `运行`\n\n[跳转](#安装-与-运行)\n\n<https://example.com/a_b?q=1&b=2> https://example.com/path.",
+    );
+    expect(html).toContain('id="安装-与-运行"');
+    expect(html).toContain('id="安装-与-运行-1"');
+    expect(html).toContain('href="#安装-与-运行"');
+    expect(html).toContain('href="https://example.com/a_b?q=1&amp;b=2"');
+    expect(html).toContain('href="https://example.com/path"');
+  });
+  it("restricts navigation scripts to Markdown and keeps code readers escaped and highlighted", () => {
+    const colors = {
+      background: "#fff",
+      foreground: "#111",
+      muted: "#555",
+      border: "#ddd",
+      accent: "#00f",
+    };
+    const options = {
+      navigation: { token: "trusted-token", nonce: "trusted-bridge" },
+      filePath: "src/a.ts",
+    };
+    const markdown = previewDocument("[file](a.md)", "markdown", colors, 13, options);
+    expect(markdown).toContain("script-src 'nonce-trusted-bridge'");
+    expect(markdown).toContain('nonce="trusted-bridge"');
+    expect(markdown).toContain("git-preview-link");
+    expect(previewDocument("<p>HTML</p>", "html", colors, 13, options)).not.toContain("<script");
+    const code = previewDocument('const value = "<script>";', "code", colors, 13, options);
+    expect(code).toContain("&lt;script&gt;");
+    expect(code).toContain('<span style="color:');
+    expect(code).not.toContain("<script");
   });
   it("restricts preview document resources and strips navigation metadata", () => {
     const html = previewDocument(

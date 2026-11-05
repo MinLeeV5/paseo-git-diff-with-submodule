@@ -1,12 +1,16 @@
 import { defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
+import { MAX_CACHED_TABS } from "./tab-cache";
 
 export const panelSettingsSchema = z.object({
   comparison: z.enum(["head", "staged", "unstaged"]).default("head"),
   tree: z.boolean().default(false),
   sidebarWidth: z.number().min(180).max(600).default(240),
   sidebarVisible: z.boolean().default(true),
-  mode: z.enum(["unified", "split", "patch"]).default("split"),
+  mode: z.preprocess(
+    (value) => (value === "patch" ? "unified" : value),
+    z.enum(["unified", "split"]).default("split"),
+  ),
   splitRatio: z.number().min(0.2).max(0.8).default(0.5),
   wrap: z.boolean().default(false),
   context: z.union([z.literal(3), z.literal(20), z.literal(1000000)]).default(3),
@@ -27,6 +31,7 @@ export const panelSettingsSchema = z.object({
   tabSize: z.union([z.literal(2), z.literal(4), z.literal(8)]).default(4),
   lineNumbers: z.boolean().default(true),
   previewDefault: z.boolean().default(false),
+  tabCacheSize: z.number().int().min(1).max(MAX_CACHED_TABS).default(5),
   scrollbar: z.enum(["thin", "auto"]).default("thin"),
 });
 export type PanelSettings = z.infer<typeof panelSettingsSchema>;

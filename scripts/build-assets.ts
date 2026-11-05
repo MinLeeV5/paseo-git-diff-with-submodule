@@ -62,6 +62,8 @@ const tools = {
   down: "chevron-down",
   back: "arrow-left",
   close: "close",
+  closeAll: "close-all",
+  copy: "copy",
   check: "check",
   warning: "warning",
   info: "info",

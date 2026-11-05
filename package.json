@@ -1,6 +1,6 @@
 {
   "name": "paseo-git-diff-with-submodule",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Review Git changes and diffs across a repository and its nested submodules, including ignored submodules.",
   "repository": {
@@ -32,7 +32,10 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "check": "npm run typecheck && npm run lint && npm test",
+    "check": "npm run check:version && npm run typecheck && npm run lint && npm test",
+    "sync:version": "tsx scripts/sync-version.ts",
+    "check:version": "tsx scripts/sync-version.ts --check",
+    "version": "npm run sync:version && git add shared/version.ts",
     "acceptance": "tsx scripts/acceptance.ts",
     "check:compatibility": "tsx scripts/check-compatibility.ts",
     "dev:ui": "vite --config tests/browser/vite.config.ts",

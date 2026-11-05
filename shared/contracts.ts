@@ -105,6 +105,7 @@ export const fileContentRpc = defineRpc({
     repositoryId: z.string(),
     path: z.string().min(1),
     comparison: comparisonSchema.default("head"),
+    scope: z.enum(["changes", "workspace"]).default("changes"),
   }),
   output: z.object({
     path: z.string(),
@@ -115,6 +116,22 @@ export const fileContentRpc = defineRpc({
   }),
 });
 export type FileContent = z.infer<typeof fileContentRpc.output>;
+export const resolveLinkRpc = defineRpc({
+  name: "git.resolve-preview-link",
+  input: z.object({
+    directory: z.string().min(1),
+    repositoryId: z.string(),
+    path: z.string().min(1),
+    href: z.string().min(1).max(8192),
+  }),
+  output: z.object({
+    repositoryId: z.string(),
+    path: z.string(),
+    kind: z.enum(["file", "directory"]),
+    version: z.string(),
+    fragment: z.string(),
+  }),
+});
 export const fileCapabilitiesRpc = defineRpc({
   name: "git.file-capabilities",
   input: z.object({}),

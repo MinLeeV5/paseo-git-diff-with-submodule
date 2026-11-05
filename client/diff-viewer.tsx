@@ -9,8 +9,8 @@ import { SyntaxText } from "./syntax-text";
 import { panelTokens } from "./theme";
 import { DiffResizer } from "./web-chrome";
 
-export type DiffLayout = "unified" | "split" | "patch";
-type ViewerRow = DiffRow | { key: string; raw: string };
+export type DiffLayout = "unified" | "split";
+type ViewerRow = DiffRow;
 const LINE_HEIGHT = 22;
 const HUNK_HEIGHT = 28;
 const MAX_COLUMNS = 2000;
@@ -59,10 +59,8 @@ export function DiffViewer({
   const language = useMemo(() => languageForPath(diff.path), [diff.path]);
   const syntaxStates = useMemo(
     () =>
-      syntaxHighlight && mode !== "patch"
-        ? diffSyntaxStates(diff.hunks, language)
-        : new WeakMap<DiffLine, object>(),
-    [diff.hunks, language, syntaxHighlight, mode],
+      syntaxHighlight ? diffSyntaxStates(diff.hunks, language) : new WeakMap<DiffLine, object>(),
+    [diff.hunks, language, syntaxHighlight],
   );
   const [width, setWidth] = useState(360);
   const [horizontalOffsets, setHorizontalOffsets] = useState([0, 0]);
@@ -114,11 +112,8 @@ export function DiffViewer({
   const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retried = useRef(false);
   const rows = useMemo<ViewerRow[]>(
-    () =>
-      mode === "patch"
-        ? diff.patch.split("\n").map((raw, index) => ({ key: `p${index}`, raw }))
-        : buildDiffRows(diff.hunks, mode === "split"),
-    [diff.patch, diff.hunks, mode],
+    () => buildDiffRows(diff.hunks, mode === "split"),
+    [diff.hunks, mode],
   );
   const layout = useMemo(() => {
     let offset = 0;
@@ -148,13 +143,11 @@ export function DiffViewer({
       }
     return { longest, columns };
   }, [diff.hunks, tabSize]);
-  // Raw patches wrap complete lines. The editor caps extreme horizontal surfaces explicitly.
-  const effectiveWrap = wrap || mode === "patch";
+  const effectiveWrap = wrap;
   const contentWidth =
     effectiveWrap || mode === "split" ? width : Math.max(width, columns * fontSize * 0.65 + 106);
   const textWidth = columns * fontSize * 0.65 + 18;
   useEffect(() => {
-    if (mode === "patch") return;
     retried.current = false;
     const index = layout.hunks[navigation.index];
     if (index !== undefined)
@@ -162,7 +155,7 @@ export function DiffViewer({
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };
-  }, [navigation, mode, layout.hunks]);
+  }, [navigation, layout.hunks]);
 
   function background(line: DiffLine | null, gutter = false) {
     return line?.kind === "added"
@@ -235,20 +228,6 @@ export function DiffViewer({
     );
   }
   function renderRow({ item, index }: { item: ViewerRow; index: number }) {
-    if ("raw" in item)
-      return (
-        <View
-          style={[
-            styles.line,
-            item.raw.startsWith("+") && styles.addedLine,
-            item.raw.startsWith("-") && styles.removedLine,
-          ]}
-        >
-          <Text selectable style={[styles.code, styles.raw]}>
-            {item.raw || " "}
-          </Text>
-        </View>
-      );
     if ("header" in item)
       return (
         <View style={[styles.hunk, index === layout.hunks[navigation.index] && styles.activeHunk]}>
@@ -304,7 +283,7 @@ export function DiffViewer({
       </View>
     );
   }
-  if (diff.state !== "text" && mode !== "patch")
+  if (diff.state !== "text")
     return (
       <View style={styles.message}>
         <Icon
@@ -377,13 +356,11 @@ export function DiffViewer({
         <View style={styles.longLineNotice}>
           <Icon name="info" size={12} color={colors.foregroundMuted} />
           <Text style={styles.columnLabel}>
-            超长行显示前 2000 字符；切换原始补丁可查看完整内容。
+            超长行显示前 2000 字符；开启自动换行可查看完整内容。
           </Text>
         </View>
       ) : null}
-      {mode === "patch" && !diff.patch ? (
-        <Text style={[styles.muted, { padding: 20 }]}>{diff.message || "没有文本差异。"}</Text>
-      ) : effectiveWrap || mode === "split" ? (
+      {effectiveWrap || mode === "split" ? (
         list
       ) : (
         <ScrollView horizontal style={styles.root} contentContainerStyle={styles.horizontal}>
@@ -520,8 +497,5 @@ function makeStyles(
       lineHeight: 19,
       maxHeight: 140,
     },
-    raw: { paddingLeft: 14 },
-    addedLine: { backgroundColor: c.addedBackground },
-    removedLine: { backgroundColor: c.removedBackground },
   });
 }

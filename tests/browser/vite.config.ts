@@ -11,6 +11,7 @@ import {
   fileContentRpc,
   fileDiffRpc,
   mermaidRuntimeRpc,
+  resolveLinkRpc,
   revealFileRpc,
 } from "../../shared/contracts";
 import { defaultSettings, panelSettingsSchema } from "../../shared/settings";
@@ -29,6 +30,10 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@getpaseo\/plugin\/client$/, replacement: resolve(import.meta.dirname, "host.ts") },
+      {
+        find: /^@getpaseo\/plugin\/client\/react-native$/,
+        replacement: resolve(import.meta.dirname, "native.ts"),
+      },
       { find: /^react-native$/, replacement: "react-native-web" },
     ],
   },
@@ -99,6 +104,13 @@ export default defineConfig({
               if (resolve(args.directory) !== resolve(directory))
                 throw new Error("Unexpected acceptance directory");
               response.end(JSON.stringify({ data: await service.snapshot(args) }));
+              return;
+            }
+            if (input.name === resolveLinkRpc.name) {
+              const args = resolveLinkRpc.input.parse(input.input);
+              if (resolve(args.directory) !== resolve(directory))
+                throw new Error("Unexpected acceptance directory");
+              response.end(JSON.stringify({ data: await service.resolveLink(args) }));
               return;
             }
             const args = fileContentRpc.input.parse(input.input);

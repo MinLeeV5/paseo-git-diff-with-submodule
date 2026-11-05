@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { setWebTitle, ToolButton } from "./controls";
 import type { EditorTab } from "./editor-model";
+import type { FileMenuTarget } from "./file-menu";
 import { fileAppearance, Icon } from "./icons";
 import { panelTokens } from "./theme";
 
@@ -11,6 +12,7 @@ export function EditorTabs({
   active,
   onSelect,
   onClose,
+  onContextMenu,
   theme,
   compact,
   sidebarVisible,
@@ -22,6 +24,7 @@ export function EditorTabs({
   active: string | null;
   onSelect(key: string): void;
   onClose(key: string): void;
+  onContextMenu(target: FileMenuTarget): void;
   theme: PluginTheme;
   compact: boolean;
   sidebarVisible: boolean;
@@ -107,6 +110,24 @@ export function EditorTabs({
             return (
               <View
                 key={tab.key}
+                {...(Platform.OS === "web"
+                  ? {
+                      onContextMenu: (event: {
+                        clientX: number;
+                        clientY: number;
+                        preventDefault(): void;
+                      }) => {
+                        event.preventDefault();
+                        onContextMenu({
+                          repositoryId: tab.repositoryId,
+                          path: tab.path,
+                          tabKey: tab.key,
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      },
+                    }
+                  : {})}
                 onLayout={(event) => {
                   positions.current.set(tab.key, event.nativeEvent.layout);
                   if (selected) reveal();
@@ -134,6 +155,15 @@ export function EditorTabs({
                     ? { title: `${tab.repositoryId} / ${tab.path}`, "aria-selected": selected }
                     : {})}
                   onPress={() => onSelect(tab.key)}
+                  onLongPress={(event) =>
+                    onContextMenu({
+                      repositoryId: tab.repositoryId,
+                      path: tab.path,
+                      tabKey: tab.key,
+                      x: event.nativeEvent.pageX,
+                      y: event.nativeEvent.pageY,
+                    })
+                  }
                   style={{
                     flexDirection: "row",
                     alignItems: "center",

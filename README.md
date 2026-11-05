@@ -11,7 +11,7 @@ Review Git changes across a workspace and its nested submodules. [English overvi
 要求 Paseo daemon 和客户端均为 0.12.0 或更高版本，daemon 机器已安装 Git。
 
 ```bash
-paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.1.0
+paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.2.0
 ```
 
 在目标 daemon 的 Settings → Plugins 中开启插件功能。进入任意 Git 工作区，打开 Command Center（⌘K / Ctrl+K），选择 **Git Changes · 包含 Submodule**；也可以从工作区或 Explorer 添加 Git Changes 面板。
@@ -28,6 +28,8 @@ paseo plugin install "$PWD"
 
 修改插件代码后运行 `npm run check` 和 `paseo plugin reload git-diff-with-submodule`。普通 Git 安装直接使用已生成的离线资源，不需要安装开发依赖。
 
+发布时使用 `npm version` 同步生成设置中显示的版本号；若跳过生命周期脚本，需运行 `npm run sync:version`。`npm run check` 会检查版本一致性。
+
 ## 行为
 
 - 主仓和每层已初始化的 submodule 分组显示；覆盖 submodule ignore 配置，不修改任何 Git 配置。
@@ -38,9 +40,9 @@ paseo plugin install "$PWD"
 - 采用 VS Code 风格的紧凑布局：图标与悬停提示、可拖动 / 隐藏侧栏、列表 / 目录树、文件路径和增删行底色。
 - 文件采用 vscode-icons 的彩色类型图标，操作按钮采用 VS Code Codicons；代码按语言着色，适配深浅主题。图标来源与许可见 [第三方资源](docs/third-party-notices.md)。
 - 点击文件新增可关闭标签，重复打开定位已有标签；标签栏支持触控板、横向滚动条和普通滚轮。
-- Markdown、HTML 与图片可切换全文预览，已暂存视图读取真实暂存区内容；右键文件可在主机 Finder / 文件管理器中定位。
-- 右上角设置按「外观、代码、比较、行为」四个 Tab 分类，字体、字号、字重等使用下拉选择，提供实时字体示例。设置自动保存到 Paseo 主机，包括布局、侧栏宽度、左右对比比例、字体、Tab 宽度、语法着色、行号、换行、上下文、空白、预览偏好和刷新策略。
-- 提供文件筛选、统一 / 左右 / 原始补丁、行号、差异块跳转、忽略空白、上下文和换行选项。
+- Markdown、HTML 与图片可切换全文预览，已暂存视图读取真实暂存区内容；侧栏和标签右键均可复制路径、复制相对工作区路径，并在主机 Finder / 文件管理器中定位；标签还支持关闭当前、其他、左侧、右侧或全部。
+- 右上角设置按「外观、代码、比较、行为」四个 Tab 分类，字体、字号、字重等使用下拉选择，提供实时字体示例。设置自动保存到 Paseo 主机，包括布局、侧栏宽度、左右对比比例、标签缓存数量、字体、Tab 宽度、语法着色、行号、换行、上下文、空白、预览偏好和刷新策略。
+- 提供文件筛选、统一 / 左右对比、行号、差异块跳转、忽略空白、上下文和换行选项。
 - 默认扫描结束约 2 秒后自动刷新，间隔可配置；可暂停，后台不轮询，失败时逐步退避，回到前台恢复读取。手动刷新立即重新扫描。
 - 支持重命名、删除、二进制状态、符号链接、权限变化、空仓库和 linked worktree。未初始化的子模块显示状态，不自动 clone、fetch 或更新指针。
 - Git 读取在 daemon 机器上执行，客户端通过普通 RPC 获取文件状态与按需加载的补丁。
@@ -55,9 +57,11 @@ paseo plugin install "$PWD"
 
 默认界面字体跟随 Paseo；默认代码字体使用 Paseo 的 SFMono/Menlo/Consolas 栈、13px 与 500 字重。设置支持 Paseo / VS Code / JetBrains Mono / 自定义已安装字体，以及 400/500/600 字重；缺失字体使用系统等宽回退。已有用户保存的字号保留。
 
-设置抽屉只滚动当前分类内容，顶部分类和底部保存状态、恢复默认入口保持固定。分类支持左右键、Home/End 切换；自动刷新关闭时禁用间隔下拉并保留原值，保存失败可直接重试。分组与控件设计见 [设置面板设计](docs/settings-design.md)。
+设置抽屉只滚动当前分类内容，顶部分类和底部保存状态、插件版本号、恢复默认入口保持固定。分类支持左右键、Home/End 切换；自动刷新关闭时禁用间隔下拉并保留原值，保存失败可直接重试。分组与控件设计见 [设置面板设计](docs/settings-design.md)。
 
-预览提供 Markdown 常见排版与代码块着色、离线 Mermaid 图表、HTML 静态页面和常见图片。Mermaid 首次需要时加载压缩引擎，单份预览最多绘制 16 张图，每张最多 20000 字符、500 条边；错误图表保留可展开源码，不影响后续图表。HTML 不运行脚本或加载外部 / 相对资源；Markdown 原始 HTML 按文本显示，图片路径显示占位。不是带构建服务的网页调试器。HTML 和格式化 Markdown 预览面向桌面 / Web；原生移动端目前回退到文本。预览最多读取 1 MiB。Finder 在 daemon 所在主机执行；删除文件定位最近仍存在的父目录。
+标签默认缓存最近访问的 5 个，可在「设置 → 行为 → 缓存标签数量」选择 1–10 个。缓存保留已挂载的差异 / 预览与滚动位置，切回未变化文件不重新读取；文件版本或比较参数变化时更新，关闭标签立即释放。较大内容按估算 24 MiB 预算提前淘汰旧页，当前标签始终保留；这是缓存估算，不是浏览器堆内存上限。面板关闭后内容缓存释放，数量设置仍会保留。差异布局仅提供左右与统一对比，旧版补丁布局偏好自动迁移到统一对比。
+
+预览提供 Markdown 常见排版与代码块着色、离线 Mermaid 图表、HTML 静态页面和常见图片。Mermaid 首次需要时加载压缩引擎，单份预览最多绘制 16 张图，每张最多 20000 字符、500 条边；错误图表保留可展开源码，不影响后续图表。HTML 不运行脚本或加载外部 / 相对资源；Markdown 原始 HTML 按文本显示，图片路径显示占位。Markdown 文件链接会在插件内打开或复用标签，也支持未修改文件、跨子模块、页内和跨文件标题锚点；普通代码文件以只读语法着色展示。相对路径从当前文档解析，`/` 开头从工作区根解析，工作区内的 `file://` 路径也可用；目录链接交由主机文件管理器显示，HTTP(S) 链接使用客户端外部浏览器打开。拒绝越出工作区和 Git 内部文件的路径。不是带构建服务的网页调试器。HTML 和格式化 Markdown 预览面向桌面 / Web；原生移动端目前回退到文本。预览最多读取 1 MiB。Finder 在 daemon 所在主机执行；删除文件定位最近仍存在的父目录。
 
 “全部”比较每个仓库的 HEAD 与工作目录。暂存后又反向修改时，两部分可能互相抵消；切换“已暂存”和“未暂存”可分别审阅。与 VS Code 的交互、视觉和性能对照及剩余差距见 [差距分析](docs/vscode-gap-analysis.md)。
 

@@ -12,6 +12,7 @@ import {
   fileContentRpc,
   fileDiffRpc,
   mermaidRuntimeRpc,
+  resolveLinkRpc,
 } from "../shared/contracts";
 import { panelSettingsSchema } from "../shared/settings";
 
@@ -87,6 +88,38 @@ try {
       sampledContentSource: content?.source ?? null,
     });
   }
+  const previewPath = process.argv[3];
+  const links = [];
+  if (previewPath) {
+    const source = { directory, repositoryId: ".", path: previewPath };
+    const self = resolveLinkRpc.output.parse(
+      await client.invokePluginRpc("git-diff-with-submodule", resolveLinkRpc.name, {
+        ...source,
+        href: `./${encodeURIComponent(previewPath.split("/").at(-1) ?? "")}`,
+      }),
+    );
+    const content = fileContentRpc.output.parse(
+      await client.invokePluginRpc("git-diff-with-submodule", fileContentRpc.name, {
+        directory,
+        repositoryId: self.repositoryId,
+        path: self.path,
+        comparison: "head",
+        scope: "workspace",
+      }),
+    );
+    assert.equal(content.state, "text");
+    links.push({ path: self.path, repositoryId: self.repositoryId, state: content.state });
+    const href = /\]\(([^)\n]+)\)/.exec(content.content)?.[1];
+    if (href) {
+      const target = resolveLinkRpc.output.parse(
+        await client.invokePluginRpc("git-diff-with-submodule", resolveLinkRpc.name, {
+          ...source,
+          href,
+        }),
+      );
+      links.push({ path: target.path, repositoryId: target.repositoryId, state: target.kind });
+    }
+  }
   const report = {
     checkedAt: new Date().toISOString(),
     transportClientVersion: "0.12.0",
@@ -99,6 +132,7 @@ try {
       decodedBytes: rendererBytes.length,
     },
     repositories,
+    links,
   };
   await mkdir("artifacts", { recursive: true });
   const output = resolve("artifacts/runtime.json");

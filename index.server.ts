@@ -8,6 +8,7 @@ import {
   fileContentRpc,
   fileDiffRpc,
   mermaidRuntimeRpc,
+  resolveLinkRpc,
   revealFileRpc,
 } from "./shared/contracts";
 import { panelSettings } from "./shared/settings";
@@ -20,6 +21,7 @@ export default function contribute(server: PluginServerContext) {
   server.handle(fileContentRpc, (input) => service.content(input));
   server.handle(fileCapabilitiesRpc, () => fileCapabilities());
   server.handle(revealFileRpc, (input) => service.reveal(input));
+  server.handle(resolveLinkRpc, (input) => service.resolveLink(input));
   server.handle(mermaidRuntimeRpc, () => mermaidRuntime);
   return () => service.close();
 }

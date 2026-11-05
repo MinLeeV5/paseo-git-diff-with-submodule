@@ -110,11 +110,11 @@ export function fileCapabilities() {
   };
 }
 export async function revealTarget(repository: RepositorySnapshot, path: string) {
-  let target = resolveFile(repository.directory, path);
-  let directory = false;
+  let target = path === "." ? repository.directory : resolveFile(repository.directory, path);
+  let directory = path === ".";
   while (true) {
     try {
-      await lstat(target);
+      directory = (await lstat(target)).isDirectory();
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT" || target === repository.directory)

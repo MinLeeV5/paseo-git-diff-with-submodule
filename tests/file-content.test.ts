@@ -1,9 +1,10 @@
 import { symlink, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, expect, it } from "vitest";
 import { revealTarget } from "../server/files";
 import { GitChangesService } from "../server/service";
-import { command, commit, fixture, put } from "./fixtures";
+import { addModule, command, commit, fixture, put } from "./fixtures";
 
 const cleanups: (() => unknown)[] = [];
 afterEach(async () => {
@@ -75,4 +76,113 @@ it("reveals deleted files at their nearest existing parent without shell interpr
     directory: true,
   });
   await expect(revealTarget(snapshot.repositories[0], "../outside")).rejects.toThrow();
+});
+it("opens unchanged linked files, root-relative paths, encoded names and nested submodule targets", async () => {
+  const { directory, service, repo } = await setup();
+  await put(directory, "docs/source.md", "# Source");
+  await put(directory, "docs/target file.md", "# Destination");
+  await put(directory, "README.md", "# Root");
+  const child = await repo("child");
+  await put(child, "guide.md", "# Child");
+  await commit(child);
+  await addModule(directory, child, "modules/child");
+  await commit(directory);
+  const source = { directory, repositoryId: ".", path: "docs/source.md" };
+  const target = await service.resolveLink({ ...source, href: "target%20file.md#destination" });
+  expect(target).toMatchObject({
+    repositoryId: ".",
+    path: "docs/target file.md",
+    kind: "file",
+    fragment: "destination",
+  });
+  await expect(
+    service.content({
+      directory,
+      repositoryId: target.repositoryId,
+      path: target.path,
+      comparison: "head",
+    }),
+  ).rejects.toThrow("变更列表");
+  expect(
+    await service.content({
+      directory,
+      repositoryId: target.repositoryId,
+      path: target.path,
+      comparison: "head",
+      scope: "workspace",
+    }),
+  ).toMatchObject({ content: "# Destination", source: "working" });
+  expect(await service.resolveLink({ ...source, href: "/README.md" })).toMatchObject({
+    repositoryId: ".",
+    path: "README.md",
+  });
+  expect(await service.resolveLink({ ...source, href: "../modules/child/guide.md" })).toMatchObject(
+    { repositoryId: "modules/child", path: "guide.md" },
+  );
+  expect(
+    await service.resolveLink({
+      directory,
+      repositoryId: "modules/child",
+      path: "guide.md",
+      href: "../../README.md",
+    }),
+  ).toMatchObject({ repositoryId: ".", path: "README.md" });
+  expect(
+    await service.resolveLink({
+      ...source,
+      href: pathToFileURL(join(directory, "README.md")).href,
+    }),
+  ).toMatchObject({ path: "README.md" });
+  expect(await service.resolveLink({ ...source, href: "../" })).toMatchObject({
+    path: ".",
+    kind: "directory",
+  });
+  expect(await service.resolveLink({ ...source, href: "./" })).toMatchObject({
+    path: "docs",
+    kind: "directory",
+  });
+});
+it("confines linked and directly requested workspace files including symlink aliases", async () => {
+  const { directory, service, base } = await setup();
+  await put(directory, "docs/source.md", "source");
+  await put(directory, "clean.md", "clean");
+  await commit(directory);
+  await put(base, "outside.md", "private");
+  await symlink(join(base, "outside.md"), join(directory, "outside-link.md"));
+  await symlink(join(directory, ".git/config"), join(directory, "internal-link.md"));
+  await put(directory, "large.txt", "x".repeat(1024 * 1024 + 1));
+  const source = { directory, repositoryId: ".", path: "docs/source.md" };
+  for (const href of [
+    "../../outside.md",
+    pathToFileURL(join(base, "outside.md")).href,
+    "../outside-link.md",
+    "../.git/config",
+    "../internal-link.md",
+    "missing.md",
+    "javascript:bad",
+  ]) {
+    await expect(service.resolveLink({ ...source, href })).rejects.toThrow();
+  }
+  for (const path of ["../outside.md", "outside-link.md", ".git/config", "internal-link.md"]) {
+    await expect(
+      service.content({
+        directory,
+        repositoryId: ".",
+        path,
+        comparison: "head",
+        scope: "workspace",
+      }),
+    ).rejects.toThrow();
+  }
+  expect(
+    (
+      await service.content({
+        directory,
+        repositoryId: ".",
+        path: "large.txt",
+        comparison: "head",
+        scope: "workspace",
+      })
+    ).state,
+  ).toBe("too_large");
 });
