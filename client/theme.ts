@@ -55,6 +55,8 @@ export function panelTokens(theme: PluginTheme) {
   return {
     ...colors,
     selection: mixColor(colors.accent, colors.surface1, 0.18),
+    fieldFocusBorder: mixColor(colors.accent, colors.border, 0.65),
+    fieldFocusBackground: mixColor(colors.accent, colors.surface0, 0.025),
     addedBackground: mixColor(colors.statusSuccess, colors.surface0, 0.12),
     removedBackground: mixColor(colors.statusDanger, colors.surface0, 0.12),
     addedGutter: mixColor(colors.statusSuccess, colors.surface1, 0.2),

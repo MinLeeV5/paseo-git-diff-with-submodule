@@ -14,6 +14,7 @@ import {
   resolveLinkRpc,
   revealFileRpc,
 } from "../../shared/contracts";
+import { commitFileDiffRpc, commitRpc, historyRpc } from "../../shared/history-contracts";
 import { defaultSettings, panelSettingsSchema } from "../../shared/settings";
 
 const service = new GitChangesService();
@@ -111,6 +112,21 @@ export default defineConfig({
               if (resolve(args.directory) !== resolve(directory))
                 throw new Error("Unexpected acceptance directory");
               response.end(JSON.stringify({ data: await service.resolveLink(args) }));
+              return;
+            }
+            for (const [contract, handler] of [
+              [historyRpc, (args: unknown) => service.history(historyRpc.input.parse(args))],
+              [commitRpc, (args: unknown) => service.commit(commitRpc.input.parse(args))],
+              [
+                commitFileDiffRpc,
+                (args: unknown) => service.commitDiff(commitFileDiffRpc.input.parse(args)),
+              ],
+            ] as const) {
+              if (input.name !== contract.name) continue;
+              const args = contract.input.parse(input.input);
+              if (resolve(args.directory) !== resolve(directory))
+                throw new Error("Unexpected acceptance directory");
+              response.end(JSON.stringify({ data: await handler(args) }));
               return;
             }
             const args = fileContentRpc.input.parse(input.input);

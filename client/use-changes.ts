@@ -100,7 +100,9 @@ export function useChanges(
       cancelTimer();
       if (active && automaticRef.current) void load();
     });
-    void load();
+    // A panel opened while the host is inactive still needs its first snapshot,
+    // including one-shot readers with automatic refresh disabled.
+    void load(true);
     return () => {
       stopped = true;
       refresh.current = null;

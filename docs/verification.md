@@ -1,6 +1,31 @@
 # 验证记录
 
-验证日期：2026-11-05。包含原有 VS Code 风格设计与设置分类，以及文件菜单、Markdown 导航、多 Tab 缓存和双布局整理。
+验证日期：2026-11-06。本轮新增 Git 提交图与历史差异并发布 v0.3.0，以下同时保留既有界面、设置与 v0.2.0 发布验证记录。
+
+## v0.3.0 发布验证
+
+版本号、锁文件、设置页版本元数据与安装命令统一为 v0.3.0。`npm run check` 的版本一致性、TypeScript、Biome 和 78 项测试通过；SDK 0.12.0 / 0.13.0 / 0.14.0 / 0.15.0 兼容检查通过。
+
+分发包包含全部新增历史读取、提交图、详情、视图切换模块，以及双语介绍和实际界面截图 `assets/git-history.png`；测试仓库与本机验收产物不打包。发布继续使用 Git 标签与 GitHub Release，并按 Paseo Plugins 的 Git 更新流程提交新版本审核。
+
+## Git 提交图与历史差异
+
+在独立临时仓库中创建 110 次提交、本地与远端分支、annotated tags、合并提交、未合并分支和配置 `ignore = all` 的子模块，使用正式服务与 React Native Web 界面验证。
+
+- `npm run check`：严格类型、Biome、11 个测试文件共 78 项回归通过。新增 9 项真实 Git 历史测试和 4 项图模型测试，覆盖拓扑、合并 / 初始提交、分页与引用变化、分支筛选、特殊重命名路径、删除、二进制、大文件、空仓库、detached HEAD、linked worktree、子模块与浅克隆边界。
+- 历史 diff 只读取提交对象：工作目录另外修改后仍显示提交中的内容；合并与第一父提交比较，初始提交与空树比较。浅克隆从原始 commit header 读取真实父提交，缺少父对象时说明无法比较，不将整个目录误作初始新增。
+- 1280×820 深浅主题以及 390×600 / 390×700 窄屏检查通过。彩色分支与合并连线、HEAD、引用徽标、作者 / 日期 / SHA、独立详情页和历史 diff 可用；窄屏限制引用徽标宽度，SHA 列保持可见，无页面横向溢出。
+- 浏览器确认提交选择、父提交信息、文件 diff、详情展开 / 收起、SHA 复制、搜索定位、方向键、100→110 条分页、主仓 / 子模块切换。搜索不移除图节点；初次 100 条历史仅挂载少量可见行。无头 macOS Chrome 的原生 select 选项没有可点击布局框，分支与仓库下拉通过 DOM change 事件验证。
+- 切换“更改 / 提交图”保留文件标签和历史选择。实际滚动提交图后切换两次，滚动节点与 scrollTop 均保留；隐藏面板不参与键盘与辅助技术导航。后台首次打开且自动刷新暂停时仍读取首次仓库快照，之后不轮询。
+- 切换入口整合到左侧标题栏图标下拉，不额外占用一行。鼠标、方向键、Home / End、Enter / Space、Esc / Tab 和点击外部关闭均验证；当前视图带勾选，切换后焦点移到可见视图入口，侧栏隐藏与窄屏 diff 页面仍能切换。关闭菜单不触发后台清空搜索，筛选值、标签、历史选择和 560px 滚动位置均保留。
+- 文件筛选、提交搜索、自定义字体输入和原生 select 统一为 1px 主题聚焦边框，移除输入元素默认粗外框。1280×820 与 390×844 深浅主题实测，输入框高度保持 32px，聚焦时无布局跳动或页面横向溢出；截图与结果位于 `artifacts/git-view-dropdown-*.png`、`artifacts/git-input-focus-*.png` 和 `artifacts/view-refinement-verification.json`。
+- 文件筛选与提交搜索框内 Enter / Shift+Enter 分别循环选择下一个 / 上一个匹配，保持输入焦点，窄屏保留列表或提交图。1280px 与 390px 浏览器实测单次跳转、双向首尾循环、无匹配结果及中文输入法组合输入（`isComposing` / keyCode 229）；不重复跳转或因提交事件失焦，也不打开提交详情。结果为 `artifacts/search-keyboard-verification.json`。
+- 桌面提交详情顶部增加可拖动分隔线，连续向上拖动 180px 后详情同步增高 180px。验证双向拖动、上下限、方向键每次 10px、Home / 双击复原、End 最大高度，以及展开收起、关闭重开、切换视图和刷新后的比例恢复；历史 diff 中同样可调整。常规窗口保留至少 160px 详情与 128px 提交图，较矮窗口自动缩小边界。深浅主题、1280×360 矮窗口与 390px 独立详情页通过，无页面溢出；既有侧栏与左右 diff 拖动也通过回归。截图为 `artifacts/git-history-resize-*.png`，结果为 `artifacts/history-resize-verification.json`。
+- 主动令历史 diff RPC 返回一次 HTTP 503，显示读取错误；点击重试后成功显示实际 Git 内容。
+- SDK 0.12.0 / 0.13.0 / 0.14.0 / 0.15.0 兼容检查通过。已重载本机目录插件并确认 `running`；`verify:installed` 通过真实宿主 RPC 读取主仓首批 100 条历史、子模块 2 条历史、两仓提交详情及历史 diff。报告为本地 `artifacts/runtime.json`。
+- `npm pack --dry-run --ignore-scripts`：新增运行模块均包含，测试与验收产物不打包，分发包约 2.2 MB。未新增运行依赖。
+
+截图已逐一打开检查：`artifacts/git-history-branches-dark.png`、`artifacts/git-history-branches-light.png`、`artifacts/git-history-search.png`、`artifacts/git-history-diff-expanded.png`、`artifacts/git-history-compact-graph.png`、`artifacts/git-history-compact-details.png`、`artifacts/git-history-compact-diff.png`。历史只读取本地对象，手动刷新，不执行 fetch。原生 iOS / Android 仍未进行实机验证。
 
 ## v0.2.0 发布验证
 
@@ -12,7 +37,7 @@ Paseo 构建器不允许运行模块导入根目录 `package.json`，因此版�
 
 ## 代码与 Git 正确性
 
-`npm run check` 包含 TypeScript 严格类型检查、Biome 和 9 个测试文件、65 项回归。
+`npm run check` 包含 TypeScript 严格类型检查、Biome 和 11 个测试文件、78 项回归。
 
 保留递归子模块、`ignore = all`、独立 HEAD、标准 ignore、未初始化子模块、暂存与工作目录、空仓库、重命名、特殊文件名、二进制、大文件、持续编辑、linked worktree、权限、符号链接、删除重建、冲突、空白、上下文及左右行号覆盖。
 

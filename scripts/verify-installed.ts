@@ -14,6 +14,7 @@ import {
   mermaidRuntimeRpc,
   resolveLinkRpc,
 } from "../shared/contracts";
+import { commitFileDiffRpc, commitRpc, historyRpc } from "../shared/history-contracts";
 import { panelSettingsSchema } from "../shared/settings";
 
 const directory = process.argv[2];
@@ -55,6 +56,39 @@ try {
   assert(snapshot.repositories.some((repository) => repository.state === "ready"));
   const repositories = [];
   for (const repository of snapshot.repositories) {
+    const history =
+      repository.state === "ready"
+        ? historyRpc.output.parse(
+            await client.invokePluginRpc("git-diff-with-submodule", historyRpc.name, {
+              directory,
+              repositoryId: repository.id,
+            }),
+          )
+        : null;
+    const latest = history?.commits[0];
+    const details = latest
+      ? commitRpc.output.parse(
+          await client.invokePluginRpc("git-diff-with-submodule", commitRpc.name, {
+            directory,
+            repositoryId: repository.id,
+            oid: latest.oid,
+          }),
+        )
+      : null;
+    const historicalFile = details?.files[0];
+    const historicalDiff =
+      details && historicalFile
+        ? commitFileDiffRpc.output.parse(
+            await client.invokePluginRpc("git-diff-with-submodule", commitFileDiffRpc.name, {
+              directory,
+              repositoryId: repository.id,
+              oid: details.oid,
+              path: historicalFile.path,
+            }),
+          )
+        : null;
+    if (latest) assert.equal(details?.oid, latest.oid);
+    if (historicalFile) assert.equal(historicalDiff?.path, historicalFile.path);
     const file = repository.files[0];
     const diff = file
       ? fileDiffRpc.output.parse(
@@ -86,6 +120,17 @@ try {
       sampledDiffState: diff?.state ?? null,
       sampledContentState: content?.state ?? null,
       sampledContentSource: content?.source ?? null,
+      history: history
+        ? {
+            loaded: history.commits.length,
+            hasMore: history.hasMore,
+            refs: history.refs.length,
+            head: history.head,
+            sampledCommit: details?.oid ?? null,
+            sampledFiles: details?.files.length ?? 0,
+            sampledDiffState: historicalDiff?.state ?? null,
+          }
+        : null,
     });
   }
   const previewPath = process.argv[3];

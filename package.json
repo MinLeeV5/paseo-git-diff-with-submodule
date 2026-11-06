@@ -1,8 +1,8 @@
 {
   "name": "paseo-git-diff-with-submodule",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Review Git changes and diffs across a repository and its nested submodules, including ignored submodules.",
+  "description": "Review Git changes, commit graphs, and historical diffs across a repository and its nested submodules, including ignored submodules.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MinLeeV5/paseo-git-diff-with-submodule.git"

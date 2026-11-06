@@ -1,10 +1,10 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { createElement, useRef, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import type { PanelSettings } from "../shared/settings";
 import { MAX_CACHED_TABS } from "../shared/tab-cache";
 import { pluginVersion } from "../shared/version";
-import { setWebTitle, ToolButton } from "./controls";
+import { InputField, setWebTitle, ToolButton } from "./controls";
 import { Icon } from "./icons";
 import { SettingsSelect } from "./settings-select";
 import { codeFont, panelTokens } from "./theme";
@@ -214,7 +214,7 @@ export function SettingsPanel({
             ? createElement(
                 "style",
                 null,
-                `[data-testid="git-settings-panel"] :is(select,[role="tab"],[role="radio"],[role="switch"]):focus-visible{outline:1px solid ${c.accent};outline-offset:-2px}[data-testid="git-settings-panel"] select:focus-visible{outline-offset:1px}`,
+                `[data-testid="git-settings-panel"] :is([role="tab"],[role="radio"],[role="switch"]):focus-visible{outline:1px solid ${c.accent};outline-offset:-2px}`,
               )
             : null}
           <View
@@ -348,7 +348,8 @@ export function SettingsPanel({
                   { value: "custom", label: "自定义" },
                 ])}
                 {values.fontFamily === "custom" ? (
-                  <TextInput
+                  <InputField
+                    theme={theme}
                     accessibilityLabel="自定义代码字体"
                     placeholder="例如：SF Mono, Menlo"
                     placeholderTextColor={c.foregroundMuted}
@@ -359,18 +360,9 @@ export function SettingsPanel({
                         customFontFamily: value.replace(/[^\w\s,'".\-\u0080-\uFFFF]/gu, ""),
                       })
                     }
-                    style={{
-                      color: c.foreground,
-                      fontFamily: c.ui,
-                      fontSize: 12,
-                      minHeight: 32,
-                      borderWidth: 1,
-                      borderColor: c.border,
-                      borderRadius: 3,
-                      padding: 8,
-                      marginBottom: 4,
-                      backgroundColor: c.surface0,
-                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    containerStyle={{ marginBottom: 4 }}
                   />
                 ) : null}
                 <View style={{ flexDirection: "row", gap: 12 }}>

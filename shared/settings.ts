@@ -12,6 +12,7 @@ export const panelSettingsSchema = z.object({
     z.enum(["unified", "split"]).default("split"),
   ),
   splitRatio: z.number().min(0.2).max(0.8).default(0.5),
+  historyDetailsRatio: z.number().min(0).max(1).default(0.43),
   wrap: z.boolean().default(false),
   context: z.union([z.literal(3), z.literal(20), z.literal(1000000)]).default(3),
   ignoreWhitespace: z.boolean().default(false),

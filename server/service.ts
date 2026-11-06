@@ -2,12 +2,97 @@ import { lstat, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { ChangesSnapshot, Comparison, FileDiff } from "../shared/contracts";
 import { DiffCache } from "../shared/diff-cache";
+import type {
+  CommitDetails,
+  CommitDiffInput,
+  CommitInput,
+  HistoryInput,
+} from "../shared/history-contracts";
 import { parsePreviewLink } from "../shared/preview-links";
 import { readFileDiff } from "./diff";
 import { readContent, revealInFileManager } from "./files";
+import { readCommit, readCommitDiff, readHistory } from "./history";
 import { RepositoryScanCache, resolveFile, scanWorkspace } from "./repositories";
 
 export class GitChangesService {
+  private readonly commits = new Map<string, Promise<CommitDetails>>();
+
+  private async historyRepository(input: { directory: string; repositoryId: string }) {
+    const snapshot = await this.snapshot({ directory: input.directory, comparison: "head" });
+    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    if (repository?.state !== "ready") throw new Error("所属仓库不可用，请刷新后重试。");
+    return repository;
+  }
+
+  async history(input: HistoryInput) {
+    const repository = await this.historyRepository(input);
+    return readHistory(repository.directory, input);
+  }
+
+  private cachedCommit(directory: string, oid: string) {
+    const key = JSON.stringify([directory, oid]);
+    const existing = this.commits.get(key);
+    if (existing) return existing;
+    const promise = readCommit(directory, oid);
+    this.commits.set(key, promise);
+    void promise.then(
+      (commit) => {
+        if (commit.diffMessage && this.commits.get(key) === promise) this.commits.delete(key);
+      },
+      () => {},
+    );
+    void promise.catch(() => {
+      if (this.commits.get(key) === promise) this.commits.delete(key);
+    });
+    while (this.commits.size > 32) {
+      const first = this.commits.keys().next().value;
+      if (first !== undefined) this.commits.delete(first);
+    }
+    return promise;
+  }
+
+  async commit(input: CommitInput) {
+    const repository = await this.historyRepository(input);
+    return this.cachedCommit(repository.directory, input.oid);
+  }
+
+  async commitDiff(input: CommitDiffInput): Promise<FileDiff> {
+    const repository = await this.historyRepository(input);
+    const key = JSON.stringify([
+      "commit",
+      repository.directory,
+      input.oid,
+      input.path,
+      input.context,
+      input.ignoreWhitespace,
+    ]);
+    const existing = this.patches.get(key);
+    if (existing) return existing;
+    const pending = this.pendingPatches.get(key);
+    if (pending) return pending;
+    const promise = this.cachedCommit(repository.directory, input.oid).then((commit) =>
+      readCommitDiff(
+        repository.directory,
+        commit,
+        input.path,
+        input.context,
+        input.ignoreWhitespace,
+      ),
+    );
+    this.pendingPatches.set(key, promise);
+    void promise.then(
+      (diff) => {
+        if (this.pendingPatches.get(key) !== promise) return;
+        this.pendingPatches.delete(key);
+        this.patches.set(key, diff);
+      },
+      () => {
+        if (this.pendingPatches.get(key) === promise) this.pendingPatches.delete(key);
+      },
+    );
+    return promise;
+  }
+
   private async fileRepository(input: {
     directory: string;
     repositoryId: string;
@@ -217,6 +302,7 @@ export class GitChangesService {
   }
 
   close(): void {
+    this.commits.clear();
     this.snapshots.clear();
     this.patches.clear();
     this.pendingPatches.clear();

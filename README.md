@@ -2,16 +2,18 @@
 
 Paseo 工作区变更插件。递归读取已初始化的 submodule，即使它们配置了 `ignore = all`，也能查看内部文件的 Git diff。
 
-Review Git changes across a workspace and its nested submodules. [English overview](OVERVIEW.md) · [中文介绍](OVERVIEW.zh-CN.md)
+Review Git changes, commit graphs, and historical diffs across a workspace and its nested submodules. [English overview](OVERVIEW.md) · [中文介绍](OVERVIEW.zh-CN.md)
 
 ![Git 差异与多文件标签](assets/git-diff.png)
+
+![Git 提交图与可调整高度的提交详情](assets/git-history.png)
 
 ## 安装与打开
 
 要求 Paseo daemon 和客户端均为 0.12.0 或更高版本，daemon 机器已安装 Git。
 
 ```bash
-paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.2.0
+paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.3.0
 ```
 
 在目标 daemon 的 Settings → Plugins 中开启插件功能。进入任意 Git 工作区，打开 Command Center（⌘K / Ctrl+K），选择 **Git Changes · 包含 Submodule**；也可以从工作区或 Explorer 添加 Git Changes 面板。
@@ -33,6 +35,8 @@ paseo plugin install "$PWD"
 ## 行为
 
 - 主仓和每层已初始化的 submodule 分组显示；覆盖 submodule ignore 配置，不修改任何 Git 配置。
+- 通过左侧图标下拉菜单切换“更改 / 提交图”。提交图参考 GitLens，以彩色分支连线展示分叉、合并、HEAD、本地 / 远端分支和标签，可独立选择主仓或子模块、筛选分支与标签，并分页加载本地历史。
+- 点击提交查看作者、完整消息、SHA、父提交和修改文件；点击文件查看历史统一 / 左右 diff。合并提交与第一父提交比较，初始提交与空树比较；历史内容不受当前工作目录和暂存区修改影响。
 - 默认“全部未提交”：逐仓比较各自 HEAD 与工作目录，包含暂存区和未跟踪文件。
 - “已暂存”比较 HEAD 与暂存区；“未暂存”比较暂存区与工作目录，并显示未跟踪文件。
 - 继续遵守 `.gitignore`、全局 ignore 和 `.git/info/exclude`；已跟踪文件仍按 Git 规则显示。
@@ -47,11 +51,15 @@ paseo plugin install "$PWD"
 - 支持重命名、删除、二进制状态、符号链接、权限变化、空仓库和 linked worktree。未初始化的子模块显示状态，不自动 clone、fetch 或更新指针。
 - Git 读取在 daemon 机器上执行，客户端通过普通 RPC 获取文件状态与按需加载的补丁。
 
-这是只读 diff 浏览插件。暂存、丢弃、提交、推送，以及分支 / 任意历史提交对比暂未提供。单个工作文件超过 1 MiB 或补丁超过 2 MiB 时，显示状态和限制说明，使用本地 Git 工具查看完整内容。
+这是只读 diff 与提交历史浏览插件。暂存、丢弃、提交、推送、分支切换以及任意两个 ref 之间的比较暂未提供。单个工作 / 历史文件超过 1 MiB 或补丁超过 2 MiB 时，显示状态和限制说明，使用本地 Git 工具查看完整内容。
 
 ## 界面与键盘
 
-文件列表内使用方向键切换文件，Enter 打开；筛选后 Enter 打开匹配文件。`Ctrl+PageUp/PageDown` 切换已打开标签，`Ctrl/Cmd+W` 关闭当前标签；`Ctrl/Cmd+F` 或 `/` 定位筛选，`Esc` 清除筛选或在窄屏返回列表，`F7` / `Shift+F7` 跳转下一个 / 上一个差异块。图标按钮支持悬停说明与键盘焦点。
+文件列表内使用方向键切换文件，Enter 打开；筛选框中 Enter / Shift+Enter 循环选择下一个 / 上一个匹配文件，并保留输入焦点，窄屏保留列表以便连续查找。`Ctrl+PageUp/PageDown` 切换已打开标签，`Ctrl/Cmd+W` 关闭当前标签；`Ctrl/Cmd+F` 或 `/` 定位筛选，`Esc` 清除筛选或在窄屏返回列表，`F7` / `Shift+F7` 跳转下一个 / 上一个差异块。图标按钮支持悬停说明与键盘焦点。
+
+提交图中 `Ctrl/Cmd+F` 定位搜索框，按提交消息、作者、邮箱或 SHA 查找已加载提交；搜索保留分支拓扑并淡化未匹配行，输入框中 Enter / Shift+Enter 循环跳转下一个 / 上一个匹配，焦点留在搜索框，中文输入法确认候选词时不跳转。提交行聚焦后使用方向键、Home / End 选择，Enter 打开详情。窄屏点击提交进入独立详情页，返回按钮回到图；桌面详情可展开，也可拖动顶部边界调整高度，松手记住比例。聚焦边界后上下键每次调整 10px，双击或 Home 恢复默认比例。切换“更改 / 提交图”保留各自的标签、选择和滚动区域，后台更改视图暂停轮询。
+
+历史每页读取 100 条，通过“加载更多提交”继续；分支或标签在分页期间变化时提示刷新，避免混合不同版本的历史。提交图手动刷新，不执行 fetch，也不读取远端尚未下载的提交；浅克隆缺少父提交时说明差异不可用。
 
 面板小于 720px 时以完整列表和独立 diff 页面显示，点击文件进入差异；代码区域不足 650px 时自动使用统一对比。拖动侧栏边缘改变宽度，双击边缘恢复 240px；聚焦边缘后左右方向键微调，Home 恢复默认。仓库标题在文件列表中吸顶，滚动到下一仓库时接替显示。侧栏按钮固定在标签栏右侧，不随标签滚动。左右对比的中线可拖动到 20%–80%，两侧代码可独立横向滚动；聚焦中线后方向键每次调整 2%，Home 或双击恢复均分。顶部只保留可滚动标签与单行路径工具栏，其他显示选项集中在设置中。主界面颜色跟随 Paseo 主题。
 

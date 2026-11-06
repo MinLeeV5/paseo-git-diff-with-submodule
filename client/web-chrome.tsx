@@ -1,6 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { createElement, useEffect, useRef, useState } from "react";
 import { PanResponder, Platform, View } from "react-native";
+import { setWebTitle } from "./controls";
 import { mixColor, panelTokens } from "./theme";
 
 // Pointer capture keeps dragging stable while the separator itself moves and
@@ -10,13 +11,20 @@ function useWebDrag(
   move: (dx: number) => void,
   end: () => void,
   reset: () => void,
+  axis: "x" | "y" = "x",
 ) {
   const ref = useRef<View>(null);
   const callbacks = useRef({ start, move, end, reset });
   callbacks.current = { start, move, end, reset };
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    type Pointer = { pointerId: number; clientX: number; button: number; preventDefault(): void };
+    type Pointer = {
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      button: number;
+      preventDefault(): void;
+    };
     const node = ref.current as unknown as {
       addEventListener(type: string, callback: (event: Pointer) => void): void;
       removeEventListener(type: string, callback: (event: Pointer) => void): void;
@@ -32,12 +40,13 @@ function useWebDrag(
       event.preventDefault();
       node.focus();
       pointer = event.pointerId;
-      origin = event.clientX;
+      origin = axis === "x" ? event.clientX : event.clientY;
       node.setPointerCapture(pointer);
       callbacks.current.start();
     };
     const drag = (event: Pointer) => {
-      if (pointer === event.pointerId) callbacks.current.move(event.clientX - origin);
+      if (pointer === event.pointerId)
+        callbacks.current.move((axis === "x" ? event.clientX : event.clientY) - origin);
     };
     const up = (event: Pointer) => {
       if (pointer !== event.pointerId) return;
@@ -64,7 +73,7 @@ function useWebDrag(
         callbacks.current.end();
       }
     };
-  }, []);
+  }, [axis]);
   return ref;
 }
 
@@ -73,21 +82,154 @@ export function ScrollbarStyle({ theme, thin }: { theme: PluginTheme; thin: bool
   const c = panelTokens(theme);
   const thumb = mixColor(c.foregroundMuted, c.surface0, 0.4);
   const hover = mixColor(c.foregroundMuted, c.surface0, 0.65);
+  const panels =
+    ':is([data-testid="git-changes-panel"],[data-testid="git-history-panel"],[data-testid="git-settings-panel"])';
   // Scope styles to this plugin; never restyle Paseo's own panels or scrollbars.
   return createElement(
     "style",
     null,
     `
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) { --git-scroll-thumb: ${thumb}; --git-scroll-hover: ${hover}; }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) :is([dir],input):not([data-git-code]):not([data-git-code] *) { font-family: ${c.ui}; }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) * { scrollbar-width: ${thin ? "thin" : "auto"}; scrollbar-color: var(--git-scroll-thumb) transparent; }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) *::-webkit-scrollbar { width: ${thin ? 7 : 12}px; height: ${thin ? 7 : 12}px; }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) *::-webkit-scrollbar-track { background: transparent; }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) *::-webkit-scrollbar-thumb { background: var(--git-scroll-thumb); border: 2px solid transparent; background-clip: padding-box; border-radius: 8px; }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) *::-webkit-scrollbar-thumb:hover { background-color: var(--git-scroll-hover); }
-    :is([data-testid="git-changes-panel"],[data-testid="git-settings-panel"]) *::-webkit-scrollbar-corner { background: transparent; }
+    ${panels} { --git-scroll-thumb: ${thumb}; --git-scroll-hover: ${hover}; }
+    ${panels} :is([dir],input):not([data-git-code]):not([data-git-code] *) { font-family: ${c.ui}; }
+    ${panels} [data-git-field] input { outline: none; box-shadow: none; }
+    ${panels} * { scrollbar-width: ${thin ? "thin" : "auto"}; scrollbar-color: var(--git-scroll-thumb) transparent; }
+    ${panels} *::-webkit-scrollbar { width: ${thin ? 7 : 12}px; height: ${thin ? 7 : 12}px; }
+    ${panels} *::-webkit-scrollbar-track { background: transparent; }
+    ${panels} *::-webkit-scrollbar-thumb { background: var(--git-scroll-thumb); border: 2px solid transparent; background-clip: padding-box; border-radius: 8px; }
+    ${panels} *::-webkit-scrollbar-thumb:hover { background-color: var(--git-scroll-hover); }
+    ${panels} *::-webkit-scrollbar-corner { background: transparent; }
     :is([data-testid="git-sidebar-resizer"],[data-testid="git-diff-resizer"]) { cursor: col-resize; touch-action: none; }
+    [data-testid="git-history-resizer"] { cursor: row-resize; touch-action: none; user-select: none; outline: none; }
   `,
+  );
+}
+
+export function HistoryResizer({
+  height,
+  min,
+  max,
+  onChange,
+  onCommit,
+  onReset,
+  theme,
+}: {
+  height: number;
+  min: number;
+  max: number;
+  onChange(height: number): void;
+  onCommit(): void;
+  onReset(): void;
+  theme: PluginTheme;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const origin = useRef(height);
+  const current = useRef({ height, min, max, onChange, onCommit, onReset });
+  current.current = { height, min, max, onChange, onCommit, onReset };
+  function change(value: number) {
+    current.current.onChange(Math.max(current.current.min, Math.min(current.current.max, value)));
+  }
+  function start() {
+    origin.current = current.current.height;
+    setDragging(true);
+  }
+  function end() {
+    setDragging(false);
+    current.current.onCommit();
+  }
+  const webRef = useWebDrag(
+    start,
+    (dy) => change(origin.current - dy),
+    end,
+    () => current.current.onReset(),
+    "y",
+  );
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: start,
+      onPanResponderMove: (_, gesture) => change(origin.current - gesture.dy),
+      onPanResponderRelease: end,
+      onPanResponderTerminate: end,
+    }),
+  ).current;
+  const label = "调整提交详情高度，上下方向键调整，Home 或双击恢复默认";
+  const active = hovered || dragging || focused;
+  return (
+    <View
+      ref={(node) => {
+        webRef.current = node;
+        setWebTitle(node, label);
+      }}
+      testID="git-history-resizer"
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ min: Math.round(min), max: Math.round(max), now: Math.round(height) }}
+      accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+      onAccessibilityAction={(event) => {
+        if (["increment", "decrement"].includes(event.nativeEvent.actionName)) {
+          change(
+            current.current.height + (event.nativeEvent.actionName === "increment" ? 10 : -10),
+          );
+          current.current.onCommit();
+        }
+      }}
+      {...(Platform.OS === "web" ? {} : responder.panHandlers)}
+      {...(Platform.OS === "web"
+        ? {
+            role: "separator",
+            "aria-orientation": "horizontal",
+            "aria-valuemin": Math.round(min),
+            "aria-valuemax": Math.round(max),
+            "aria-valuenow": Math.round(height),
+            tabIndex: 0,
+            onKeyDown: (event: {
+              key: string;
+              preventDefault(): void;
+              stopPropagation(): void;
+            }) => {
+              if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.key === "Home") current.current.onReset();
+                else {
+                  change(
+                    event.key === "End"
+                      ? current.current.max
+                      : current.current.height + (event.key === "ArrowUp" ? 10 : -10),
+                  );
+                  current.current.onCommit();
+                }
+              }
+            },
+          }
+        : {})}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        position: "absolute",
+        top: -4,
+        left: 0,
+        right: 0,
+        height: 9,
+        zIndex: 4,
+        justifyContent: "center",
+        backgroundColor: active
+          ? mixColor(theme.colors.accent, theme.colors.surface0, 0.12)
+          : "transparent",
+      }}
+    >
+      <View
+        style={{
+          height: active ? 2 : 1,
+          backgroundColor: active ? theme.colors.accent : theme.colors.border,
+        }}
+      />
+    </View>
   );
 }
 

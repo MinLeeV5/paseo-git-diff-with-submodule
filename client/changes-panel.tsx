@@ -6,7 +6,16 @@ import {
   useWorkspace,
 } from "@getpaseo/plugin/client";
 import { copyText } from "@getpaseo/plugin/client/react-native";
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -15,7 +24,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
+  type TextInput,
   View,
 } from "react-native";
 import {
@@ -33,11 +42,12 @@ import {
   entryKey,
   statusLabels,
 } from "./changes-model";
-import { setWebTitle, ToolButton } from "./controls";
+import { InputField, setWebTitle, ToolButton } from "./controls";
 import { type CloseTabs, closeTabs, openTab, type TabsState } from "./editor-model";
 import { EditorTabs } from "./editor-tabs";
 import { FileMenu, type FileMenuItem, type FileMenuTarget } from "./file-menu";
 import { filePaths } from "./file-paths";
+import { HistoryPanel } from "./history-panel";
 import { fileAppearance, Icon } from "./icons";
 import { previewKind } from "./preview-model";
 import { SettingsPanel } from "./settings-panel";
@@ -46,6 +56,7 @@ import { TabEditor } from "./tab-editor";
 import { panelTokens } from "./theme";
 import { useChanges } from "./use-changes";
 import { usePanelSettings } from "./use-panel-settings";
+import { ViewSwitcher, type WorkspaceView } from "./view-switcher";
 import { ScrollbarStyle, SidebarResizer } from "./web-chrome";
 
 function displayPath(path: string) {
@@ -314,6 +325,23 @@ export function WorkspaceChanges(props: {
   compact: boolean;
 }) {
   const preferences = usePanelSettings();
+  const [view, setView] = useState<WorkspaceView>("changes");
+  const [historyOpened, setHistoryOpened] = useState(false);
+  const changesButton = useRef<View>(null);
+  const historyButton = useRef<View>(null);
+  useEffect(() => {
+    if (!historyOpened) return;
+    // Wait for the closing modal to release focus before focusing the visible view.
+    const timer = setTimeout(
+      () => (view === "changes" ? changesButton : historyButton).current?.focus(),
+      0,
+    );
+    return () => clearTimeout(timer);
+  }, [view, historyOpened]);
+  function switchView(next: WorkspaceView) {
+    if (next === "history") setHistoryOpened(true);
+    setView(next);
+  }
   if (!preferences.loaded)
     return (
       <View
@@ -341,7 +369,64 @@ export function WorkspaceChanges(props: {
         )}
       </View>
     );
-  return <WorkspaceEditor {...props} preferences={preferences} />;
+  const c = panelTokens(props.theme);
+  return (
+    <View style={{ flex: 1, minWidth: 0, minHeight: 0, backgroundColor: c.surface0 }}>
+      <View style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+        <WorkspacePane active={view === "changes"}>
+          <WorkspaceEditor
+            {...props}
+            preferences={preferences}
+            active={view === "changes"}
+            viewSwitcher={
+              <ViewSwitcher
+                value="changes"
+                onChange={switchView}
+                buttonRef={changesButton}
+                theme={props.theme}
+              />
+            }
+          />
+        </WorkspacePane>
+        {historyOpened ? (
+          <WorkspacePane active={view === "history"}>
+            <HistoryPanel
+              {...props}
+              preferences={preferences}
+              viewSwitcher={
+                <ViewSwitcher
+                  value="history"
+                  onChange={switchView}
+                  buttonRef={historyButton}
+                  theme={props.theme}
+                />
+              }
+            />
+          </WorkspacePane>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function WorkspacePane({ active, children }: { active: boolean; children: ReactNode }) {
+  return (
+    <View
+      ref={(node) => {
+        if (Platform.OS !== "web" || !node) return;
+        const element = node as unknown as { style: { visibility: string }; inert: boolean };
+        element.style.visibility = active ? "visible" : "hidden";
+        element.inert = !active;
+      }}
+      pointerEvents={active ? "auto" : "none"}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+      {...(Platform.OS === "web" ? { "aria-hidden": !active } : {})}
+      style={{ position: "absolute", inset: 0, minWidth: 0, minHeight: 0, opacity: active ? 1 : 0 }}
+    >
+      {children}
+    </View>
+  );
 }
 
 function WorkspaceEditor({
@@ -350,12 +435,16 @@ function WorkspaceEditor({
   theme,
   compact: hostCompact,
   preferences,
+  active,
+  viewSwitcher,
 }: {
   directory: string;
   name: string;
   theme: PluginTheme;
   compact: boolean;
   preferences: ReturnType<typeof usePanelSettings>;
+  active: boolean;
+  viewSwitcher: ReactNode;
 }) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const colors = useMemo(() => panelTokens(theme), [theme]);
@@ -439,7 +528,7 @@ function WorkspaceEditor({
       node.focus();
     }
   }, []);
-  const changes = useChanges(directory, comparison, automatic, settings.refreshInterval);
+  const changes = useChanges(directory, comparison, automatic && active, settings.refreshInterval);
   const repositories = changes.data?.repositories;
   const model = useMemo(() => {
     const repos = repositories ?? [];
@@ -592,6 +681,24 @@ function WorkspaceEditor({
       node.focus();
     }
   }
+  function moveSearchMatch(delta: -1 | 1) {
+    if (!visibleFiles.length) return;
+    const index = visibleFiles.findIndex((row) => row.key === selectedKey);
+    const nextIndex =
+      index < 0
+        ? delta > 0
+          ? 0
+          : visibleFiles.length - 1
+        : (index + delta + visibleFiles.length) % visibleFiles.length;
+    const next = visibleFiles[nextIndex];
+    selectFile(next.repository.id, next.file.path);
+    if (compact) setPage("changes");
+    listRef.current?.scrollToIndex({
+      index: model.rows.indexOf(next),
+      animated: false,
+      viewPosition: 0.5,
+    });
+  }
   function moveHunk(delta: number) {
     if (hunkCount && selectedKey)
       setHunkPositions((previous) => ({
@@ -638,6 +745,7 @@ function WorkspaceEditor({
     preventDefault(): void;
     stopPropagation(): void;
   }) {
+    if (event.target?.closest?.('[role="menu"]')) return;
     const editing = ["INPUT", "TEXTAREA"].includes(event.target?.tagName ?? "");
     if (event.target?.getAttribute?.("role") === "separator") return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
@@ -927,7 +1035,7 @@ function WorkspaceEditor({
             ]}
           >
             <View style={styles.titlebar}>
-              <Icon name="source" color={colors.foregroundMuted} />
+              {viewSwitcher}
               <Text style={styles.heading}>更改</Text>
               <Text style={styles.count}>{model.entries.length}</Text>
               <ToolButton
@@ -990,26 +1098,19 @@ function WorkspaceEditor({
                 </Pressable>
               ))}
             </View>
-            <View style={styles.filterWrap}>
-              <Icon name="search" size={14} color={colors.foregroundMuted} />
-              <TextInput
-                ref={inputRef}
-                accessibilityLabel="筛选变更文件"
-                placeholder="筛选文件路径…"
-                placeholderTextColor={colors.foregroundMuted}
-                value={filter}
-                onChangeText={setFilter}
-                style={styles.filter}
-                autoCapitalize="none"
-                autoCorrect={false}
-                onSubmitEditing={() => {
-                  const target =
-                    model.filtered.find(
-                      (entry) => entryKey(entry.repository.id, entry.file.path) === selectedKey,
-                    ) ?? model.filtered[0];
-                  if (target) selectFile(target.repository.id, target.file.path);
-                }}
-              />
+            <InputField
+              theme={theme}
+              icon="search"
+              inputRef={inputRef}
+              accessibilityLabel="筛选变更文件"
+              placeholder="筛选文件路径…"
+              value={filter}
+              onChangeText={setFilter}
+              containerStyle={styles.filterWrap}
+              autoCapitalize="none"
+              autoCorrect={false}
+              onNavigateMatch={moveSearchMatch}
+            >
               {filter ? (
                 <ToolButton
                   theme={theme}
@@ -1018,7 +1119,7 @@ function WorkspaceEditor({
                   onPress={() => setFilter("")}
                 />
               ) : null}
-            </View>
+            </InputField>
             {changes.error ? (
               <View accessibilityRole="alert" style={styles.error}>
                 <Icon name="warning" color={colors.statusDanger} />
@@ -1110,6 +1211,9 @@ function WorkspaceEditor({
           ]}
         >
           <View style={styles.editorTitlebar}>
+            {(!compact && !settings.sidebarVisible) || (compact && page === "diff") ? (
+              <View style={{ paddingLeft: 8, justifyContent: "center" }}>{viewSwitcher}</View>
+            ) : null}
             <EditorTabs
               tabs={tabs.tabs}
               active={tabs.active}
@@ -1439,28 +1543,9 @@ function makeStyles(theme: PluginTheme) {
     tabText: { color: c.foregroundMuted, fontSize: 12 },
     activeTabText: { color: c.foreground },
     filterWrap: {
-      minHeight: 30,
       marginHorizontal: 12,
       marginTop: 6,
       marginBottom: 6,
-      paddingLeft: 8,
-      paddingRight: 2,
-      gap: 5,
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: c.surface0,
-      borderWidth: 1,
-      borderColor: c.border,
-      borderRadius: 2,
-    },
-    filter: {
-      flex: 1,
-      minWidth: 0,
-      minHeight: 28,
-      paddingVertical: 4,
-      paddingHorizontal: 2,
-      color: c.foreground,
-      fontSize: 12,
     },
     sectionbar: {
       minHeight: 30,

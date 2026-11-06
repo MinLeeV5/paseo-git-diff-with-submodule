@@ -24,13 +24,14 @@ export function SettingsSelect({
 }) {
   const c = panelTokens(theme);
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const selected = options.find((option) => option.value === value);
   const field = {
     minHeight: 32,
     borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 3,
-    backgroundColor: c.surface0,
+    borderColor: focused ? c.fieldFocusBorder : c.border,
+    borderRadius: 4,
+    backgroundColor: focused ? c.fieldFocusBackground : c.surface0,
   };
   const caret = (
     <View pointerEvents="none" style={{ position: "absolute", right: 10, top: 9 }}>
@@ -46,14 +47,18 @@ export function SettingsSelect({
             "aria-label": label,
             value,
             disabled,
+            onFocus: () => setFocused(true),
+            onBlur: () => setFocused(false),
             onChange: (event: { target: { value: string } }) => onChange(event.target.value),
             style: {
               width: "100%",
               height: 32,
               padding: "0 30px 0 10px",
-              border: `1px solid ${c.border}`,
-              borderRadius: 3,
-              backgroundColor: c.surface0,
+              border: `1px solid ${field.borderColor}`,
+              borderRadius: field.borderRadius,
+              backgroundColor: field.backgroundColor,
+              outline: "none",
+              boxShadow: "none",
               color: c.foreground,
               fontFamily: c.ui,
               fontSize: 12,
@@ -77,6 +82,8 @@ export function SettingsSelect({
         accessibilityState={{ disabled, expanded: open }}
         disabled={disabled}
         onPress={() => setOpen(true)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={[
           field,
           {

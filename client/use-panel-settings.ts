@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { defaultSettings, type PanelSettings, panelSettingsSchema } from "../shared/settings";
 
 const contracts = settingsRpc("git-panel");
-const isDragSetting = (key: string) => key === "sidebarWidth" || key === "splitRatio";
+const isDragSetting = (key: string) =>
+  key === "sidebarWidth" || key === "splitRatio" || key === "historyDetailsRatio";
 
 // Host storage, shared by panels and devices. Queue only the changed fields so a
 // second panel cannot accidentally overwrite unrelated settings with stale values.
