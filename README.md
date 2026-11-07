@@ -13,7 +13,7 @@ Review Git changes, commit graphs, and historical diffs across a workspace and i
 要求 Paseo daemon 和客户端均为 0.12.0 或更高版本，daemon 机器已安装 Git。
 
 ```bash
-paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.4.0
+paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.4.1
 ```
 
 在目标 daemon 的 Settings → Plugins 中开启插件功能。进入任意 Git 工作区，打开 Command Center（⌘K / Ctrl+K），选择 **Git Changes · 包含 Submodule**；也可以从工作区或 Explorer 添加 Git Changes 面板。

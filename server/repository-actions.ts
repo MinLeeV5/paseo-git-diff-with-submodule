@@ -45,16 +45,26 @@ async function stage(repository: RepositorySnapshot, paths?: string[]) {
     if (!selected.length) throw new Error("所选文件已变化，请刷新后重试。");
   }
   await git(repository.directory, ["add", "--all", "--", ...selected]);
-  if (!paths) {
-    // Explicitly stage initialized gitlinks even when a submodule has ignore=all.
-    const index = parseIndex(await git(repository.directory, ["ls-files", "--stage", "-z"]));
-    for (const [path, entry] of index)
-      if (entry.mode === "160000") {
-        if (!(await lstat(join(repository.directory, path, ".git")).catch(() => null))) continue;
-        const moduleHead = await head(resolveFile(repository.directory, path)).catch(() => null);
-        if (moduleHead && moduleHead !== entry.oid)
-          await git(repository.directory, ["add", "--", path]);
-      }
+  // Newer Git also skips explicit gitlink adds when submodule ignore=all is set.
+  // Update only selected, tracked, initialized gitlinks without changing config.
+  const normalized = paths
+    ? selected.map((path) =>
+        relative(repository.directory, resolveFile(repository.directory, path))
+          .split(sep)
+          .join("/"),
+      )
+    : [""];
+  const index = parseIndex(await git(repository.directory, ["ls-files", "--stage", "-z"]));
+  for (const [path, entry] of index) {
+    if (
+      entry.mode !== "160000" ||
+      !normalized.some((parent) => !parent || path === parent || path.startsWith(`${parent}/`))
+    )
+      continue;
+    if (!(await lstat(join(repository.directory, path, ".git")).catch(() => null))) continue;
+    const moduleHead = await head(resolveFile(repository.directory, path)).catch(() => null);
+    if (moduleHead && moduleHead !== entry.oid)
+      await git(repository.directory, ["update-index", "--cacheinfo", "160000", moduleHead, path]);
   }
 }
 
@@ -112,7 +122,13 @@ export async function runRepositoryAction(repository: RepositorySnapshot, input:
         throw new Error("仓库 HEAD 已变化，请刷新并检查后重新提交。");
       if (repository.conflictCount) throw new Error("仓库仍有未解决的冲突，请先解决冲突并暂存。");
       if (input.stageAll) await stage(repository);
-      const staged = await git(directory, ["diff", "--cached", "--name-only", "-z"]);
+      const staged = await git(directory, [
+        "diff",
+        ...DIFF_OPTIONS,
+        "--cached",
+        "--name-only",
+        "-z",
+      ]);
       if (!staged) throw new Error("没有可提交的已暂存更改。");
       await git(directory, ["commit", "--message", messageText], { timeout: 120000 });
       message = "提交成功。";

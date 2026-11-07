@@ -143,6 +143,65 @@ describe("repository changes", () => {
     ).toBe(true);
   });
 
+  it.each(["modules/child with space", "modules"])(
+    "stages and commits only the ignored gitlink selected by %s",
+    async (selected) => {
+      const { f, directory, service } = await setup();
+      const source = await f.repo("source");
+      await put(source, "child.txt", "baseline\n");
+      await commit(source);
+      const path = "modules/child with space";
+      const child = await addModule(directory, source, path);
+      await command(child, "config", "user.name", "Plugin tests");
+      await command(child, "config", "user.email", "test@example.invalid");
+      await command(directory, "config", "-f", ".gitmodules", `submodule.${path}.ignore`, "all");
+      await command(directory, "config", `submodule.${path}.ignore`, "all");
+      await put(directory, "main.txt", "baseline\n");
+      await commit(directory);
+      const mainHead = await currentHead(directory);
+      const oldChildHead = await currentHead(child);
+      await put(directory, "main.txt", "keep unstaged\n");
+      await put(child, "child.txt", "child work\n");
+      await commit(child);
+      const childHead = await currentHead(child);
+      const stage = () =>
+        service.repositoryAction({
+          directory,
+          repositoryId: ".",
+          action: "stage",
+          paths: [selected],
+        });
+      await stage();
+      expect(await command(directory, "rev-parse", `:${path}`)).toBe(`${childHead}\n`);
+      expect(
+        await command(directory, "diff", "--cached", "--ignore-submodules=none", "--name-only"),
+      ).toBe(`${path}\n`);
+      await service.repositoryAction({
+        directory,
+        repositoryId: ".",
+        action: "unstage",
+        paths: [path],
+      });
+      expect(await command(directory, "rev-parse", `:${path}`)).toBe(`${oldChildHead}\n`);
+      await stage();
+      await service.repositoryAction({
+        directory,
+        repositoryId: ".",
+        action: "commit",
+        message: "chore: update child pointer",
+        stageAll: false,
+        expectedHead: mainHead,
+      });
+      expect(await command(directory, "rev-parse", `HEAD:${path}`)).toBe(`${childHead}\n`);
+      expect(await command(directory, "show", "HEAD:main.txt")).toBe("baseline\n");
+      expect(await readFile(join(directory, "main.txt"), "utf8")).toBe("keep unstaged\n");
+      expect(await command(directory, "config", `submodule.${path}.ignore`)).toBe("all\n");
+      expect(
+        await command(directory, "config", "-f", ".gitmodules", `submodule.${path}.ignore`),
+      ).toBe("all\n");
+    },
+  );
+
   it("restages edited renames and unstages unborn files without changing working content", async () => {
     const { directory, service } = await setup();
     const path = "odd\nfile.txt";
