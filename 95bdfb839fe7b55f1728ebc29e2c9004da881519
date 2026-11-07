@@ -1,0 +1,63 @@
+server/service.ts
+  d9b8af8ad25dd66e 48-53,78
+shared/version.ts
+  d9b8af8ad25dd66e 2
+package.json
+  d9b8af8ad25dd66e 3
+README.md
+  d9b8af8ad25dd66e 16,49,61,79
+server/commit-message.ts
+  d9b8af8ad25dd66e 1,3-10,255-281,288,293-294,309
+tests/repository-actions.test.ts
+  d9b8af8ad25dd66e 308-364,382-385,387-389
+client/changes-panel.tsx
+  d9b8af8ad25dd66e 90,110,113,126,129,254-298,300-302,305-314,316-328,330-337,339-346,351,463,472,565,826-842,867,870,887,1019,1030,1699-1711
+docs/verification.md
+  d9b8af8ad25dd66e 3-30
+OVERVIEW.md
+  d9b8af8ad25dd66e 11,13
+server/commit-message-jobs.ts
+  d9b8af8ad25dd66e 21-26
+server/repositories.ts
+  d9b8af8ad25dd66e 134,152-156,199-203,212,218-220,262-263
+OVERVIEW.zh-CN.md
+  d9b8af8ad25dd66e 13
+client/use-repository-actions.ts
+  d9b8af8ad25dd66e 15,68,73,86,103
+shared/repository-contracts.ts
+  d9b8af8ad25dd66e 39
+tests/commit-message.test.ts
+  d9b8af8ad25dd66e 7-8,49,55,71-86,88,94-98,167,183,209,219-220,228-310,391,408,441,469,508-510
+client/repository-controls.tsx
+  d9b8af8ad25dd66e 113-115,122-124,183
+shared/contracts.ts
+  d9b8af8ad25dd66e 37-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "95bdfb839fe7b55f1728ebc29e2c9004da881519",
+  "prompts": {
+    "d9b8af8ad25dd66e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b486-12a8-7580-b51c-1f3c583c8ee8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 446,
+      "total_deletions": 144,
+      "accepted_lines": 433,
+      "overriden_lines": 6,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/316faacc61c81546b07766a5d4bdb6a86c1193d378b1f8a0b5ead58b3e8914a4",
+      "token_usage": {
+        "input_tokens": 896214,
+        "output_tokens": 267471,
+        "cache_read_tokens": 46866304,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
