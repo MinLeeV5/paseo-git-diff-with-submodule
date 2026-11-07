@@ -1,0 +1,73 @@
+tests/browser/toast.tsx
+  085564262ac2b783 1-82
+client/use-message.ts
+  085564262ac2b783 1-40
+docs/verification.md
+  085564262ac2b783 3-10
+client/history-panel.tsx
+  085564262ac2b783 25,59,595,597-599,682-684
+client/changes-panel.tsx
+  085564262ac2b783 59,508-509,607,626,921-922,924-927,932-935,939-942,944,957,988,1127,1129,1132,1134
+client/use-panel-settings.ts
+  085564262ac2b783 5,16,27,71,96-105,125,162-164
+tests/browser/native.ts
+  085564262ac2b783 1-2
+client/repository-controls.tsx
+  085564262ac2b783 197,199,207
+client/use-repository-actions.ts
+  085564262ac2b783 8-16,27,53,55,65-69,75,115,120
+scripts/check-compatibility.ts
+  085564262ac2b783 47
+tests/browser/entry.tsx
+  085564262ac2b783 6,62-73
+README.md
+  085564262ac2b783 81-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "a79303ebd9e0f0867fff7d28d3cb6530d4d9003e",
+  "prompts": {
+    "085564262ac2b783": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b5ce-3f54-7d62-9987-e5382f751a68",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 225,
+      "total_deletions": 50,
+      "accepted_lines": 225,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/b0787cf397f800e5cf9aea33ad11c8969e0f6d2b032bf1c80a16fb73b546518c",
+      "token_usage": {
+        "input_tokens": 280743,
+        "output_tokens": 53275,
+        "cache_read_tokens": 10815018,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "d9b8af8ad25dd66e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b486-12a8-7580-b51c-1f3c583c8ee8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 925917,
+        "output_tokens": 278355,
+        "cache_read_tokens": 48689280,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
