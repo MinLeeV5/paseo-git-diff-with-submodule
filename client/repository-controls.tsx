@@ -194,9 +194,9 @@ export const RepositoryControls = memo(function RepositoryControls({
           }
         </Text>
       ) : null}
-      {state?.message ? (
+      {state?.error && state.message ? (
         <View
-          accessibilityRole={state.error ? "alert" : undefined}
+          accessibilityRole="alert"
           accessibilityLiveRegion="polite"
           style={{ flexDirection: "row", gap: 4, alignItems: "flex-start" }}
         >
@@ -204,7 +204,7 @@ export const RepositoryControls = memo(function RepositoryControls({
             selectable
             style={{
               flex: 1,
-              color: state.error ? c.statusDanger : c.statusSuccess,
+              color: c.statusDanger,
               fontSize: 11,
               lineHeight: 17,
             }}

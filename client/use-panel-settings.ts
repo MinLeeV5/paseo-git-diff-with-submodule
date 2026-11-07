@@ -2,6 +2,7 @@ import { settingsRpc } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { defaultSettings, type PanelSettings, panelSettingsSchema } from "../shared/settings";
+import { useMessage } from "./use-message";
 
 const contracts = settingsRpc("git-panel");
 const isDragSetting = (key: string) =>
@@ -12,6 +13,7 @@ const isDragSetting = (key: string) =>
 export function usePanelSettings() {
   const read = useRpc(contracts.read);
   const write = useRpc(contracts.write);
+  const message = useMessage();
   const [values, setValues] = useState(defaultSettings);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -22,6 +24,7 @@ export function usePanelSettings() {
   const alive = useRef(true);
   const inFlight = useRef(false);
   const commitRequested = useRef(false);
+  const resetRequested = useRef(false);
   const [request, setRequest] = useState(0);
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export function usePanelSettings() {
       inFlight.current = true;
       if (alive.current) setSaving(true);
       const patch = pending.current;
+      const restoringDefaults = resetRequested.current;
       pending.current = {};
       try {
         let saved = false;
@@ -89,6 +93,16 @@ export function usePanelSettings() {
         if (alive.current) {
           setValues({ ...stored.current, ...pending.current });
           setError(null);
+          if (
+            restoringDefaults &&
+            resetRequested.current &&
+            (Object.keys(defaultSettings) as (keyof PanelSettings)[]).every(
+              (key) => stored.current[key] === defaultSettings[key],
+            )
+          ) {
+            resetRequested.current = false;
+            message("已恢复默认设置。", "success");
+          }
         }
       } catch (failure) {
         pending.current = { ...patch, ...pending.current };
@@ -108,7 +122,7 @@ export function usePanelSettings() {
         else await flush();
       }
     },
-    [read, write],
+    [read, write, message],
   );
   const flushRef = useRef(flush);
   flushRef.current = flush;
@@ -145,6 +159,9 @@ export function usePanelSettings() {
     flush: () => {
       void flushRef.current();
     },
-    reset: () => update(defaultSettings),
+    reset: () => {
+      resetRequested.current = true;
+      update(defaultSettings);
+    },
   };
 }

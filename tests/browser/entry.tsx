@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { useWindowDimensions } from "react-native";
 import { WorkspaceChanges } from "../../client/changes-panel";
 import { NativePreview } from "./native-preview";
+import { ToastPreview } from "./toast";
 
 declare const document: {
   getElementById(id: string): Parameters<typeof createRoot>[0] | null;
@@ -58,13 +59,16 @@ const root = createRoot(element);
 const response = await fetch("/api/info");
 const info = (await response.json()) as { directory: string };
 root.render(
-  query.get("platform") === "native" ? (
-    <NativePreview
-      directory={info.directory}
-      path={query.get("path") ?? "README.md"}
-      theme={theme}
-    />
-  ) : (
-    <Preview directory={info.directory} />
-  ),
+  <>
+    {query.get("platform") === "native" ? (
+      <NativePreview
+        directory={info.directory}
+        path={query.get("path") ?? "README.md"}
+        theme={theme}
+      />
+    ) : (
+      <Preview directory={info.directory} />
+    )}
+    <ToastPreview theme={theme} />
+  </>,
 );

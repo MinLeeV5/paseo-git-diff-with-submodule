@@ -44,6 +44,7 @@ try {
             "@getpaseo/plugin": [join(sdk, "index.d.ts")],
             "@getpaseo/plugin/client": [join(sdk, "client/index.d.ts")],
             "@getpaseo/plugin/client/ui": [join(sdk, "client/ui.d.ts")],
+            "@getpaseo/plugin/client/react-native": [join(sdk, "client/react-native.d.ts")],
             "@getpaseo/plugin/server": [join(sdk, "server/index.d.ts")],
           },
         },

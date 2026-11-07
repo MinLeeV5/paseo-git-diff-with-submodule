@@ -22,6 +22,7 @@ import { SettingsSelect } from "./settings-select";
 import { panelTokens } from "./theme";
 import { useChanges } from "./use-changes";
 import { useCommit, useHistory } from "./use-history";
+import { briefError, repositoryLabel, useMessage } from "./use-message";
 import type { usePanelSettings } from "./use-panel-settings";
 import { HistoryResizer, ScrollbarStyle } from "./web-chrome";
 
@@ -55,7 +56,7 @@ export function HistoryPanel({
   const [expanded, setExpanded] = useState(false);
   const [file, setFile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const message = useMessage();
   const scopeKey = JSON.stringify([directory, repositoryId, reference]);
   const selected = selection?.key === scopeKey ? selection.oid : null;
   const repositories = useChanges(directory, "head", false);
@@ -147,7 +148,6 @@ export function HistoryPanel({
     setDetailsOpen(null);
     setExpanded(false);
     setFile(null);
-    setCopyStatus(null);
   }
   function refresh() {
     repositories.refresh();
@@ -592,10 +592,11 @@ export function HistoryPanel({
                 label="复制完整提交 SHA"
                 onPress={() => {
                   void copyText(selected).then(
-                    () => setCopyStatus("已复制提交 SHA"),
+                    () => message(`${repositoryLabel(repositoryId)}：已复制提交 SHA。`, "success"),
                     (error: unknown) =>
-                      setCopyStatus(
-                        `复制失败：${error instanceof Error ? error.message : String(error)}`,
+                      message(
+                        `${repositoryLabel(repositoryId)}：复制失败。${briefError(error)}`,
+                        "error",
                       ),
                   );
                 }}
@@ -678,19 +679,9 @@ export function HistoryPanel({
           · {graph.rows.length} 次提交{history.data?.hasMore ? "（可继续加载）" : ""}
         </Text>
         <View style={{ flex: 1 }} />
-        {copyStatus ? (
-          <Text
-            accessibilityLiveRegion="polite"
-            numberOfLines={1}
-            style={{ color: c.foregroundMuted, fontSize: 10, flexShrink: 1 }}
-          >
-            {copyStatus}
-          </Text>
-        ) : (
-          <Text style={{ color: c.foregroundMuted, fontSize: 10 }}>
-            {compact ? "只读" : `${refs.filter((ref) => ref.kind !== "tag").length} 个分支 · 只读`}
-          </Text>
-        )}
+        <Text style={{ color: c.foregroundMuted, fontSize: 10 }}>
+          {compact ? "只读" : `${refs.filter((ref) => ref.kind !== "tag").length} 个分支 · 只读`}
+        </Text>
       </View>
     </View>
   );

@@ -56,6 +56,7 @@ import { TabCache } from "./tab-cache";
 import { TabEditor } from "./tab-editor";
 import { panelTokens } from "./theme";
 import { useChanges } from "./use-changes";
+import { briefError, repositoryLabel, useMessage } from "./use-message";
 import { usePanelSettings } from "./use-panel-settings";
 import { useRepositoryActions } from "./use-repository-actions";
 import { useSystemBack } from "./use-system-back";
@@ -504,7 +505,8 @@ function WorkspaceEditor({
   const [showSettings, setShowSettings] = useState(false);
   const [previews, setPreviews] = useState<Record<string, boolean>>({});
   const [menu, setMenu] = useState<FileMenuTarget | null>(null);
-  const [fileAction, setFileAction] = useState<string | null>(null);
+  const [fileStatusError, setFileStatusError] = useState<string | null>(null);
+  const message = useMessage();
   const getCapabilities = useRpc(fileCapabilitiesRpc);
   const revealFile = useRpc(revealFileRpc);
   const resolveLink = useRpc(resolveLinkRpc);
@@ -602,6 +604,7 @@ function WorkspaceEditor({
   const linkedPath = linked?.path;
   const linkedId = linked?.repositoryId;
   useEffect(() => {
+    setFileStatusError(null);
     if (!selectedKey || !linkedPath || !linkedId) return;
     let stopped = false;
     void resolveLink({
@@ -620,7 +623,7 @@ function WorkspaceEditor({
       },
       (error: unknown) => {
         if (!stopped)
-          setFileAction(
+          setFileStatusError(
             `无法检查文件最新状态：${error instanceof Error ? error.message : String(error)}`,
           );
       },
@@ -905,7 +908,6 @@ function WorkspaceEditor({
   }
   async function reveal(target: { repositoryId: string; path: string }, scope?: "workspace") {
     setMenu(null);
-    setFileAction(null);
     try {
       const result = await revealFile({
         directory,
@@ -916,26 +918,35 @@ function WorkspaceEditor({
           scope ??
           (linkedFiles[entryKey(target.repositoryId, target.path)] ? "workspace" : "changes"),
       });
-      setFileAction(result.directory && !scope ? "文件已删除，已定位到所在目录。" : null);
+      if (result.directory && !scope)
+        message(`${repositoryLabel(target.repositoryId)}：文件已删除，已定位到所在目录。`, "info");
     } catch (error) {
-      setFileAction(error instanceof Error ? error.message : String(error));
+      message(
+        `${repositoryLabel(target.repositoryId)}：定位文件失败。${briefError(error)}`,
+        "error",
+      );
     }
   }
   async function copyPath(target: FileMenuTarget, relative: boolean) {
-    setFileAction(null);
     const repository = repositories?.find((repo) => repo.id === target.repositoryId);
-    if (!repository) return;
+    if (!repository) {
+      message("文件所属仓库已变化，请刷新后重试。", "warning");
+      return;
+    }
     const paths = filePaths(repository, target.path);
     try {
       await copyText(relative ? paths.relative : paths.absolute);
+      message(
+        `${repositoryLabel(repository.id)}：已复制${relative ? "相对路径" : "路径"}。`,
+        "success",
+      );
     } catch (error) {
-      setFileAction(`复制失败：${error instanceof Error ? error.message : String(error)}`);
+      message(`${repositoryLabel(repository.id)}：复制失败。${briefError(error)}`, "error");
     }
   }
   async function navigatePreview(href: string) {
     const link = parsePreviewLink(href);
     if (!link || !selected) return;
-    setFileAction(null);
     const request = ++navigationRequest.current;
     if (link.kind === "web") {
       try {
@@ -943,7 +954,7 @@ function WorkspaceEditor({
           ? Linking.openURL(link.url)
           : openExternalUrl(link.url));
       } catch (error) {
-        setFileAction(`打开链接失败：${error instanceof Error ? error.message : String(error)}`);
+        message(`打开链接失败：${briefError(error)}`, "error");
       }
       return;
     }
@@ -974,7 +985,7 @@ function WorkspaceEditor({
       setPage("diff");
     } catch (error) {
       if (request === navigationRequest.current)
-        setFileAction(error instanceof Error ? error.message : String(error));
+        message(`打开文件链接失败：${briefError(error)}`, "error");
     }
   }
   function menuItems(target: FileMenuTarget): FileMenuItem[] {
@@ -1113,14 +1124,14 @@ function WorkspaceEditor({
           onClose={() => setMenu(null)}
         />
       ) : null}
-      {fileAction ? (
+      {fileStatusError ? (
         <View accessibilityRole="alert" style={styles.error}>
-          <Text style={[styles.small, styles.fileName]}>{fileAction}</Text>
+          <Text style={[styles.small, styles.fileName]}>{fileStatusError}</Text>
           <ToolButton
             theme={theme}
-            label="关闭文件操作提示"
+            label="关闭文件状态提示"
             icon="close"
-            onPress={() => setFileAction(null)}
+            onPress={() => setFileStatusError(null)}
           />
         </View>
       ) : null}

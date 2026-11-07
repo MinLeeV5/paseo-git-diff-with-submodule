@@ -5,6 +5,15 @@ import {
   type RepositoryAction,
   repositoryActionRpc,
 } from "../shared/repository-contracts";
+import { briefError, repositoryLabel, useMessage } from "./use-message";
+
+const actionLabels = {
+  stage: "暂存",
+  unstage: "取消暂存",
+  commit: "提交",
+  pull: "拉取",
+  push: "推送",
+};
 
 export type RepositoryOperationState = {
   busy: RepositoryAction["action"] | "generate" | null;
@@ -15,6 +24,7 @@ export type RepositoryOperationState = {
 export function useRepositoryActions(directory: string, refresh: () => void, workspaceId?: string) {
   const action = useRpc(repositoryActionRpc);
   const generate = useRpc(generateCommitMessageRpc);
+  const message = useMessage();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const draftRef = useRef(drafts);
   const [states, setStates] = useState<Record<string, RepositoryOperationState>>({});
@@ -40,8 +50,9 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
           setDraft(id, "");
         setStates((old) => ({
           ...old,
-          [id]: { busy: null, message: result.message, error: false },
+          [id]: { busy: null, message: "", error: false },
         }));
+        message(`${repositoryLabel(id)}：${result.message}`, "success", `repository:${id}`);
       } catch (error) {
         setStates((old) => ({
           ...old,
@@ -51,12 +62,17 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
             error: true,
           },
         }));
+        message(
+          `${repositoryLabel(id)}：${actionLabels[input.action]}失败。${briefError(error)}`,
+          "error",
+          `repository:${id}`,
+        );
       } finally {
         pending.current.delete(id);
         refreshRef.current();
       }
     },
-    [action, setDraft],
+    [action, setDraft, message],
   );
   const generateMessage = useCallback(
     async (id: string, scope: "staged" | "all") => {
@@ -96,11 +112,12 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
             error: true,
           },
         }));
+        message(`${repositoryLabel(id)}：提交信息生成失败，已保留草稿。`, "error");
       } finally {
         pending.current.delete(id);
       }
     },
-    [directory, workspaceId, generate, setDraft],
+    [directory, workspaceId, generate, setDraft, message],
   );
   return { drafts, states, setDraft, clearMessage, run, generateMessage };
 }
