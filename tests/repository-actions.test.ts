@@ -305,6 +305,63 @@ describe("repository changes", () => {
 });
 
 describe("repository synchronization", () => {
+  it("counts outgoing and incoming commits from local upstream refs without fetching", async () => {
+    const { f, directory, service } = await setup();
+    const snapshot = (comparison: "head" | "staged" | "unstaged" = "head") =>
+      service.snapshot({ directory, comparison, force: true });
+    expect((await snapshot()).repositories[0]).toMatchObject({
+      aheadCount: null,
+      behindCount: null,
+    });
+    await put(directory, "base.txt", "base\n");
+    await commit(directory);
+    expect((await snapshot()).repositories[0]).toMatchObject({
+      aheadCount: null,
+      behindCount: null,
+    });
+    const remote = join(f.base, "counts.git");
+    await command(f.base, "init", "--bare", "-q", remote);
+    await command(directory, "remote", "add", "origin", remote);
+    await service.repositoryAction({ directory, repositoryId: ".", action: "push" });
+    expect((await snapshot()).repositories[0]).toMatchObject({
+      upstream: "origin/main",
+      aheadCount: 0,
+      behindCount: 0,
+    });
+    const peer = join(f.base, "counts-peer");
+    await command(f.base, "clone", "-q", "--branch", "main", remote, peer);
+    await put(directory, "outgoing.txt", "local\n");
+    await commit(directory);
+    for (let i = 1; i <= 2; i++) {
+      await put(peer, `incoming-${i}.txt`, "remote\n");
+      await commit(peer);
+    }
+    await command(peer, "push", "-q");
+    const before = await snapshot();
+    expect(before.repositories[0]).toMatchObject({ aheadCount: 1, behindCount: 0 });
+    await command(directory, "fetch", "-q", "origin");
+    // User status settings must not turn exact counts into unknown values.
+    await command(directory, "config", "status.aheadBehind", "false");
+    for (const comparison of ["head", "staged", "unstaged"] as const) {
+      const after = await snapshot(comparison);
+      expect(after.repositories[0]).toMatchObject({ aheadCount: 1, behindCount: 2, files: [] });
+      expect(after.version).not.toBe(before.version);
+    }
+    await command(directory, "update-ref", "-d", "refs/remotes/origin/main");
+    expect((await snapshot()).repositories[0]).toMatchObject({
+      upstream: "origin/main",
+      aheadCount: null,
+      behindCount: null,
+    });
+    await command(directory, "checkout", "--detach", "-q");
+    expect((await snapshot()).repositories[0]).toMatchObject({
+      branch: null,
+      upstream: null,
+      aheadCount: null,
+      behindCount: null,
+    });
+  });
+
   it("pulls and pushes a submodule independently of its parent repository", async () => {
     const { f, directory, service } = await setup();
     const source = await f.repo("source");
@@ -322,7 +379,14 @@ describe("repository synchronization", () => {
     await put(peer, "remote-child.txt", "remote child update\n");
     await commit(peer);
     await command(peer, "push", "-q");
+    await command(child, "fetch", "-q", "origin");
+    const beforePull = await service.snapshot({ directory, comparison: "head", force: true });
+    expect(beforePull.repositories[0]).toMatchObject({ aheadCount: null, behindCount: null });
+    expect(beforePull.repositories[1]).toMatchObject({ aheadCount: 0, behindCount: 1 });
     await service.repositoryAction({ directory, repositoryId: "modules/child", action: "pull" });
+    expect(
+      (await service.snapshot({ directory, comparison: "head" })).repositories[1],
+    ).toMatchObject({ aheadCount: 0, behindCount: 0 });
     expect(await currentHead(child)).toBe(await currentHead(peer));
     expect(await currentHead(directory)).toBe(mainHead);
     expect(await readFile(join(child, "remote-child.txt"), "utf8")).toBe("remote child update\n");

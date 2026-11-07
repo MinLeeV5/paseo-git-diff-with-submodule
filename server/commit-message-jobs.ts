@@ -18,7 +18,12 @@ export class CommitMessageJobs {
     input: CommitMessageRequest,
     generate: () => Promise<CommitMessageDraft>,
   ): CommitMessageResult {
-    const key = JSON.stringify([input.directory, input.repositoryId, input.scope]);
+    const key = JSON.stringify([
+      input.workspaceId,
+      input.directory,
+      input.repositoryId,
+      input.scope,
+    ]);
     for (const [id, job] of this.jobs)
       if (job.finishedAt !== null && Date.now() - job.finishedAt > 600000) this.jobs.delete(id);
     if (input.generationId) {

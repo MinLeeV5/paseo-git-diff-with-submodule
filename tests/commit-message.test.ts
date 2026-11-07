@@ -4,6 +4,8 @@ import type {
   PaseoAgentHandle,
   PaseoAgentRunResult,
   PaseoProviderSnapshotResult,
+  PaseoWorkspace,
+  PaseoWorkspaceHandle,
 } from "@getpaseo/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -44,13 +46,13 @@ const idle: PaseoAgentRunResult = {
   error: null,
   lastMessage: '{"message":"fix: 修复文件导航"}',
 };
-function fakePaseo(providers = entries) {
+function fakePaseo(directory: string, providers = entries) {
   const run = vi.fn<PaseoAgentHandle["run"]>().mockResolvedValue(idle);
   const archive = vi
     .fn<PaseoAgentHandle["archive"]>()
     .mockResolvedValue({ archivedAt: new Date().toISOString() });
   const refetch = vi.fn<PaseoAgentHandle["timeline"]["refetch"]>();
-  const create = vi.fn<CommitMessagePaseo["agents"]["create"]>().mockImplementation(
+  const create = vi.fn<PaseoWorkspaceHandle["agents"]["create"]>().mockImplementation(
     async () =>
       ({
         id: "commit-generator",
@@ -66,13 +68,34 @@ function fakePaseo(providers = entries) {
     entries: providers,
     generatedAt: new Date().toISOString(),
   } as PaseoProviderSnapshotResult);
+  const workspace = {
+    id: "panel-workspace",
+    workspaceDirectory: directory,
+    archivingAt: null,
+  } as PaseoWorkspace;
+  const refresh = vi.fn<PaseoWorkspaceHandle["refresh"]>().mockResolvedValue(workspace);
+  const ref = vi.fn<CommitMessagePaseo["workspaces"]["ref"]>().mockReturnValue({
+    id: workspace.id,
+    refresh,
+    agents: { create },
+  } as unknown as PaseoWorkspaceHandle);
+  const page = {
+    entries: [workspace],
+    pageInfo: { nextCursor: null, prevCursor: null, hasMore: false },
+  } as Awaited<ReturnType<CommitMessagePaseo["workspaces"]["list"]>>;
+  const list = vi.fn<CommitMessagePaseo["workspaces"]["list"]>().mockResolvedValue(page);
   return {
-    paseo: { config: { get }, providers: { waitForReady }, agents: { create } },
+    paseo: { config: { get }, providers: { waitForReady }, workspaces: { ref, list } },
     run,
     archive,
     create,
     get,
     refetch,
+    workspace,
+    page,
+    refresh,
+    ref,
+    list,
   };
 }
 async function setup() {
@@ -141,7 +164,7 @@ describe("Paseo commit messages", () => {
     await put(directory, "untracked.txt", "untracked-content\n");
     const before = await command(directory, "diff", "--cached");
     const head = await command(directory, "rev-parse", "HEAD");
-    const fake = fakePaseo();
+    const fake = fakePaseo(directory);
     const result = await service.generateCommitMessage(
       { directory, repositoryId: ".", scope: "staged" },
       { paseo: fake.paseo, settings },
@@ -150,7 +173,6 @@ describe("Paseo commit messages", () => {
     expect(fake.run.mock.calls[0][0]).toContain("+staged-only-content");
     expect(fake.run.mock.calls[0][0]).not.toContain("untracked");
     expect(fake.create.mock.calls[0][0]).toMatchObject({
-      cwd: await realpath(directory),
       autoArchive: true,
       config: {
         provider: "codex/test-mini",
@@ -158,6 +180,7 @@ describe("Paseo commit messages", () => {
         options: { sandbox_mode: "read-only", approval_policy: "never" },
       },
     });
+    expect(fake.ref).toHaveBeenCalledWith(fake.workspace);
     expect(fake.archive).toHaveBeenCalledOnce();
     expect(await command(directory, "diff", "--cached")).toBe(before);
     expect(await command(directory, "rev-parse", "HEAD")).toBe(head);
@@ -183,7 +206,7 @@ describe("Paseo commit messages", () => {
     await commit(directory);
     await put(directory, "file.txt", "ROOT_CHANGE\n");
     await put(child, "child.txt", "CHILD_CHANGE\n");
-    const fake = fakePaseo();
+    const fake = fakePaseo(directory);
     await service.generateCommitMessage(
       { directory, repositoryId: "modules/child", scope: "all" },
       { paseo: fake.paseo, settings },
@@ -193,12 +216,96 @@ describe("Paseo commit messages", () => {
     expect(prompt).toContain("+CHILD_CHANGE");
     expect(prompt).not.toContain("ROOT_STYLE");
     expect(prompt).not.toContain("ROOT_CHANGE");
-    expect(fake.create.mock.calls[0][0].cwd).toBe(await realpath(directory));
+    expect(fake.ref).toHaveBeenCalledWith(fake.workspace);
+    expect(fake.workspace.workspaceDirectory).toBe(directory);
     const snapshot = await service.snapshot({ directory, comparison: "head" });
     const rootPrompt = await commitMessagePrompt(snapshot.repositories[0], "all", "");
     expect(rootPrompt).toContain("ROOT_STYLE");
     expect(rootPrompt).toContain("+ROOT_CHANGE");
     expect(rootPrompt).not.toContain("CHILD_CHANGE");
+  });
+
+  it("binds the panel workspace explicitly when multiple workspaces share its checkout", async () => {
+    const { directory, service } = await setup();
+    await put(directory, "file.txt", "after\n");
+    const fake = fakePaseo(directory);
+    fake.workspace.background = false;
+    fake.list.mockResolvedValue({
+      ...fake.page,
+      entries: [fake.workspace, { ...fake.workspace, id: "another-panel" }],
+    });
+    await service.generateCommitMessage(
+      { directory, workspaceId: fake.workspace.id, repositoryId: ".", scope: "all" },
+      { paseo: fake.paseo, settings },
+    );
+    expect(fake.ref).toHaveBeenCalledWith(fake.workspace.id);
+    expect(fake.refresh).toHaveBeenCalledOnce();
+    expect(fake.list).not.toHaveBeenCalled();
+    expect(fake.create).toHaveBeenCalledOnce();
+    expect(fake.create.mock.calls[0][0]).not.toHaveProperty("cwd");
+    // background changes workspace visibility, so never pass it to an existing target.
+    expect(fake.create.mock.calls[0][0]).not.toHaveProperty("background");
+    expect(fake.workspace.background).toBe(false);
+    expect(fake.archive).toHaveBeenCalledOnce();
+  });
+
+  it.each(["missing", "mismatched", "archiving", "ambiguous", "unknown-id"] as const)(
+    "does not create an agent or workspace for a $0 workspace target",
+    async (scenario) => {
+      const { f, directory, service } = await setup();
+      await put(directory, "file.txt", "after\n");
+      const fake = fakePaseo(directory);
+      const explicit = !["missing", "ambiguous"].includes(scenario);
+      if (scenario === "missing") fake.list.mockResolvedValue({ ...fake.page, entries: [] });
+      if (scenario === "mismatched")
+        fake.refresh.mockResolvedValue({ ...fake.workspace, workspaceDirectory: f.base });
+      if (scenario === "archiving")
+        fake.refresh.mockResolvedValue({
+          ...fake.workspace,
+          archivingAt: new Date().toISOString(),
+        });
+      if (scenario === "ambiguous")
+        fake.list.mockResolvedValue({
+          ...fake.page,
+          entries: [fake.workspace, { ...fake.workspace, id: "another-panel" }],
+        });
+      if (scenario === "unknown-id") fake.refresh.mockResolvedValue(null);
+      await expect(
+        service.generateCommitMessage(
+          {
+            directory,
+            ...(explicit ? { workspaceId: fake.workspace.id } : {}),
+            repositoryId: ".",
+            scope: "all",
+          },
+          { paseo: fake.paseo, settings },
+        ),
+      ).rejects.toThrow("工作区");
+      expect(fake.create).not.toHaveBeenCalled();
+      expect(fake.get).not.toHaveBeenCalled();
+    },
+  );
+
+  it("finds a unique existing workspace across pages and canonical directory aliases", async () => {
+    const { f, directory, service } = await setup();
+    await put(directory, "file.txt", "after\n");
+    const fake = fakePaseo(directory);
+    fake.workspace.workspaceDirectory = await realpath(directory);
+    fake.list
+      .mockResolvedValueOnce({
+        ...fake.page,
+        entries: [{ ...fake.workspace, id: "other-checkout", workspaceDirectory: f.base }],
+        pageInfo: { nextCursor: "second-page", prevCursor: null, hasMore: true },
+      })
+      .mockResolvedValueOnce(fake.page);
+    await service.generateCommitMessage(
+      { directory, repositoryId: ".", scope: "all" },
+      { paseo: fake.paseo, settings },
+    );
+    expect(fake.list).toHaveBeenCalledTimes(2);
+    expect(fake.list.mock.calls[1][0]).toEqual({ page: { limit: 200, cursor: "second-page" } });
+    expect(fake.ref).toHaveBeenCalledWith(fake.workspace);
+    expect(fake.create).toHaveBeenCalledOnce();
   });
 
   it("honors the plugin prompt over project style, validates bad configuration, and defaults when absent", async () => {
@@ -281,7 +388,7 @@ describe("Paseo commit messages", () => {
   ] as const)("archives $status sessions even after failure", async (response) => {
     const { directory, service } = await setup();
     await put(directory, "file.txt", "after\n");
-    const fake = fakePaseo();
+    const fake = fakePaseo(directory);
     fake.run.mockResolvedValue({ ...response, final: null });
     await expect(
       service.generateCommitMessage(
@@ -298,7 +405,7 @@ describe("Paseo commit messages", () => {
   it("tries the next configured model after failure and parses fenced JSON", async () => {
     const { directory, service } = await setup();
     await put(directory, "file.txt", "after\n");
-    const fake = fakePaseo();
+    const fake = fakePaseo(directory);
     fake.get.mockResolvedValue({
       config: {
         metadataGeneration: {
@@ -331,7 +438,7 @@ describe("Paseo commit messages", () => {
   it("blocks concurrent writes and stops an active generation when the service closes", async () => {
     const { directory, service } = await setup();
     await put(directory, "file.txt", "after\n");
-    const fake = fakePaseo();
+    const fake = fakePaseo(directory);
     let release = (_: PaseoAgentRunResult) => {};
     fake.run.mockImplementation(
       () =>
@@ -359,7 +466,7 @@ describe("Paseo commit messages", () => {
   it("explains unavailable models and lets users explicitly choose the local generator", async () => {
     const { directory, service } = await setup();
     await put(directory, "file.txt", "after\n");
-    const fake = fakePaseo([]);
+    const fake = fakePaseo(directory, []);
     const input = { directory, repositoryId: ".", scope: "all" as const };
     await expect(
       service.generateCommitMessage(input, { paseo: fake.paseo, settings }),
@@ -395,6 +502,12 @@ describe("commit generation polling", () => {
     expect(() =>
       jobs.request(
         { ...input, repositoryId: "other", generationId: started.generationId },
+        generate,
+      ),
+    ).toThrow("任务已失效");
+    expect(() =>
+      jobs.request(
+        { ...input, workspaceId: "other-panel", generationId: started.generationId },
         generate,
       ),
     ).toThrow("任务已失效");

@@ -34,6 +34,8 @@ export const repositorySchema = z.object({
   head: z.string().nullable(),
   branch: z.string().nullable().default(null),
   upstream: z.string().nullable().default(null),
+  aheadCount: z.number().int().nonnegative().nullable().default(null),
+  behindCount: z.number().int().nonnegative().nullable().default(null),
   stagedCount: z.number().int().nonnegative().default(0),
   unstagedCount: z.number().int().nonnegative().default(0),
   conflictCount: z.number().int().nonnegative().default(0),

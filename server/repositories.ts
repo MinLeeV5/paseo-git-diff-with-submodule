@@ -131,7 +131,7 @@ async function readRepository(
       "status",
       "--porcelain=v2",
       "--branch",
-      "--no-ahead-behind",
+      "--ahead-behind",
       "-z",
       "--untracked-files=all",
       "--ignore-submodules=none",
@@ -149,6 +149,11 @@ async function readRepository(
     git(directory, ["diff", ...DIFF_OPTIONS, "--numstat", "-z", ...refs, "--"]),
   ]);
   const status = parseStatus(statusOutput);
+  const headers: string[] = [];
+  for (const record of statusOutput.split("\0")) {
+    if (!record.startsWith("# ")) break;
+    headers.push(record);
+  }
   const stats = parseNumstat(statsOutput);
   const changed = new Map(parseNameStatus(names).map((file) => [file.path, file]));
   if (comparison !== "staged") {
@@ -191,6 +196,11 @@ async function readRepository(
   );
   const files = entries.filter((file): file is FileChange => file !== null);
   files.sort((left, right) => left.path.localeCompare(right.path));
+  // Missing upstream refs (including deleted remote branches) have no branch.ab
+  // record. Keep their counts unknown rather than showing a misleading zero.
+  const divergence = /^# branch\.ab \+(\d+) -(\d+)$/.exec(
+    headers.find((record) => record.startsWith("# branch.ab ")) ?? "",
+  );
   return {
     snapshot: {
       id,
@@ -199,18 +209,15 @@ async function readRepository(
       parentId,
       head,
       branch:
-        statusOutput
-          .split("\0")
+        headers
           .find((record) => record.startsWith("# branch.head "))
           ?.slice(14)
           .replace(/^\(detached\)$/, "") || null,
       recordedHead,
       indexedHead,
-      upstream:
-        statusOutput
-          .split("\0")
-          .find((line) => line.startsWith("# branch.upstream "))
-          ?.slice(18) || null,
+      upstream: headers.find((line) => line.startsWith("# branch.upstream "))?.slice(18) || null,
+      aheadCount: divergence ? Number(divergence[1]) : null,
+      behindCount: divergence ? Number(divergence[2]) : null,
       stagedCount: [...status.entries.values()].filter((entry) => entry.staged).length,
       unstagedCount:
         [...status.entries.values()].filter((entry) => entry.unstaged).length +
@@ -252,6 +259,8 @@ export async function scanWorkspace(
   ): Promise<void> {
     const fallback: RepositorySnapshot = {
       upstream: null,
+      aheadCount: null,
+      behindCount: null,
       stagedCount: 0,
       unstagedCount: 0,
       conflictCount: 0,

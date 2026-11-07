@@ -45,7 +45,12 @@ export class GitChangesService {
   }
 
   async generateCommitMessage(
-    input: { directory: string; repositoryId: string; scope: "staged" | "all" },
+    input: {
+      directory: string;
+      workspaceId?: string;
+      repositoryId: string;
+      scope: "staged" | "all";
+    },
     generation?: {
       paseo: CommitMessagePaseo;
       settings: Pick<PanelSettings, "commitMessageGenerator" | "commitMessageInstructions">;
@@ -70,6 +75,7 @@ export class GitChangesService {
         repository,
         input.scope,
         generation.settings.commitMessageInstructions,
+        input.workspaceId,
         this.generationController.signal,
       );
     } finally {

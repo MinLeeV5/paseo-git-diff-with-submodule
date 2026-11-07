@@ -1,6 +1,13 @@
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
-import type { PaseoAgentConfig, PaseoApi, PaseoProviderSnapshotResult } from "@getpaseo/client";
+import type {
+  PaseoAgentConfig,
+  PaseoApi,
+  PaseoProviderSnapshotResult,
+  PaseoWorkspace,
+  PaseoWorkspaceListOptions,
+  PaseoWorkspaceListResult,
+} from "@getpaseo/client";
 import { z } from "zod";
 import type { RepositorySnapshot } from "../shared/contracts";
 import { DIFF_OPTIONS, errorMessage, GitError, git } from "./git";
@@ -10,7 +17,10 @@ import { commitChanges } from "./repository-actions";
 export type CommitMessagePaseo = {
   config: Pick<PaseoApi["config"], "get">;
   providers: Pick<PaseoApi["providers"], "waitForReady">;
-  agents: Pick<PaseoApi["agents"], "create">;
+  workspaces: {
+    ref: PaseoApi["workspaces"]["ref"];
+    list(options?: PaseoWorkspaceListOptions): Promise<PaseoWorkspaceListResult>;
+  };
 };
 type ProviderEntry = PaseoProviderSnapshotResult["entries"][number];
 type Model = NonNullable<ProviderEntry["models"]>[number];
@@ -242,15 +252,45 @@ function assertActive(signal?: AbortSignal) {
   if (signal?.aborted) throw new Error("生成会话已停止。");
 }
 
+async function generationWorkspace(paseo: CommitMessagePaseo, cwd: string, workspaceId?: string) {
+  async function matches(workspace: PaseoWorkspace | null) {
+    if (!workspace?.workspaceDirectory || workspace.archivingAt) return false;
+    return (await realpath(workspace.workspaceDirectory).catch(() => null)) === cwd;
+  }
+  if (workspaceId) {
+    const workspace = paseo.workspaces.ref(workspaceId);
+    if (!(await matches(await workspace.refresh())))
+      throw new Error("当前工作区不可用或目录不匹配，请重新打开 Git 面板后再试。");
+    return workspace;
+  }
+  // Older panels do not send an id. Resolve a unique existing workspace without
+  // calling open/create: both can leave a new workspace behind on the host.
+  const found: PaseoWorkspace[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await paseo.workspaces.list({
+      page: { limit: 200, ...(cursor ? { cursor } : {}) },
+    });
+    for (const workspace of page.entries) if (await matches(workspace)) found.push(workspace);
+    cursor = page.pageInfo.nextCursor ?? undefined;
+  } while (cursor);
+  if (found.length !== 1)
+    throw new Error("无法确定当前工作区，请重新打开 Git 面板后生成提交信息。");
+  return paseo.workspaces.ref(found[0]);
+}
+
 export async function generatePaseoCommitMessage(
   paseo: CommitMessagePaseo,
   cwd: string,
   repository: RepositorySnapshot,
   scope: "staged" | "all",
   custom: string,
+  workspaceId?: string,
   signal?: AbortSignal,
 ) {
   const prompt = await commitMessagePrompt(repository, scope, custom);
+  assertActive(signal);
+  const workspace = await generationWorkspace(paseo, cwd, workspaceId);
   assertActive(signal);
   const [{ config }, snapshot] = await Promise.all([
     paseo.config.get(),
@@ -266,8 +306,7 @@ export async function generatePaseoCommitMessage(
     if (Date.now() >= deadline) break;
     assertActive(signal);
     try {
-      const agent = await paseo.agents.create({
-        cwd,
+      const agent = await workspace.agents.create({
         config: generationOptions(selection),
         title: `提交信息 · ${repository.id}`,
         outputSchema: z.toJSONSchema(responseSchema),

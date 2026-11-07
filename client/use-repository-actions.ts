@@ -12,7 +12,7 @@ export type RepositoryOperationState = {
   error: boolean;
 };
 
-export function useRepositoryActions(directory: string, refresh: () => void) {
+export function useRepositoryActions(directory: string, refresh: () => void, workspaceId?: string) {
   const action = useRpc(repositoryActionRpc);
   const generate = useRpc(generateCommitMessageRpc);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -65,11 +65,12 @@ export function useRepositoryActions(directory: string, refresh: () => void) {
       const before = draftRef.current[id] ?? "";
       setStates((old) => ({ ...old, [id]: { busy: "generate", message: "", error: false } }));
       try {
-        let result = await generate({ directory, repositoryId: id, scope });
+        let result = await generate({ directory, workspaceId, repositoryId: id, scope });
         while (result.status === "working") {
           await new Promise((resolve) => setTimeout(resolve, 750));
           result = await generate({
             directory,
+            workspaceId,
             repositoryId: id,
             scope,
             generationId: result.generationId,
@@ -82,11 +83,7 @@ export function useRepositoryActions(directory: string, refresh: () => void) {
           ...old,
           [id]: {
             busy: null,
-            message: unchanged
-              ? result.source === "paseo"
-                ? "已通过 Paseo AI 生成提交信息，可继续编辑。"
-                : "已根据文件变化生成提交信息，可继续编辑。"
-              : "生成期间输入已变化，已保留当前草稿。",
+            message: "",
             error: false,
           },
         }));
@@ -103,7 +100,7 @@ export function useRepositoryActions(directory: string, refresh: () => void) {
         pending.current.delete(id);
       }
     },
-    [directory, generate, setDraft],
+    [directory, workspaceId, generate, setDraft],
   );
   return { drafts, states, setDraft, clearMessage, run, generateMessage };
 }

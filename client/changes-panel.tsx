@@ -87,6 +87,7 @@ export function ChangesPanel(props: PluginWorkspacePanelProps) {
   return (
     <WorkspaceChanges
       key={workspace.directory}
+      workspaceId={props.workspaceId}
       directory={workspace.directory}
       name={workspace.name}
       theme={props.theme}
@@ -106,8 +107,10 @@ const ChangeItem = memo(function ChangeItem({
   compact,
   active,
   collapsed,
+  busy,
   onToggle,
   onSelect,
+  onFileAction,
   onRegister,
   onFocusFile,
   onContextMenu,
@@ -120,8 +123,10 @@ const ChangeItem = memo(function ChangeItem({
   compact: boolean;
   active: boolean;
   collapsed: boolean;
+  busy: boolean;
   onToggle(key: string): void;
   onSelect(repositoryId: string, path: string): void;
+  onFileAction(repositoryId: string, path: string, action: "stage" | "unstage"): void;
   onRegister(key: string, node: View | null): void;
   onFocusFile(key: string): void;
   onContextMenu(target: FileMenuTarget): void;
@@ -246,82 +251,104 @@ const ChangeItem = memo(function ChangeItem({
   const status = statusLabels[file.status];
   const label = `${status.label} ${repository.id}/${file.path}${file.oldPath ? `，原路径 ${file.oldPath}` : ""}，${file.binary ? "二进制文件" : `新增 ${file.additions ?? "未知"} 行，删除 ${file.deletions ?? "未知"} 行`}${file.staged && file.unstaged ? "，同时有已暂存和未暂存更改" : ""}`;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`查看 diff ${label}`}
-      ref={(node) => {
-        onRegister(item.key, node);
-        setWebTitle(node, label);
-      }}
-      accessibilityState={Platform.OS !== "web" ? { selected: active } : {}}
-      {...(Platform.OS === "web"
-        ? { title: label, "aria-current": active ? "true" : undefined }
-        : {})}
-      onPress={() => onSelect(repository.id, file.path)}
-      onLongPress={(event) =>
-        onContextMenu({
-          repositoryId: repository.id,
-          path: file.path,
-          x: event.nativeEvent.pageX,
-          y: event.nativeEvent.pageY,
-        })
-      }
-      {...(Platform.OS === "web"
-        ? {
-            onContextMenu: (event: {
-              clientX: number;
-              clientY: number;
-              preventDefault(): void;
-            }) => {
-              event.preventDefault();
-              onContextMenu({
-                repositoryId: repository.id,
-                path: file.path,
-                x: event.clientX,
-                y: event.clientY,
-              });
-            },
-          }
-        : {})}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      onFocus={() => {
-        setFocused(true);
-        onFocusFile(item.key);
-      }}
-      onBlur={() => setFocused(false)}
-      style={[
-        styles.file,
-        compact && styles.touchRow,
-        { paddingLeft: tree ? 25 + Math.min(item.depth, 6) * 14 : 24 },
-        ...rowFeedback,
-      ]}
-    >
-      <Icon name={appearance.icon} color={appearance.color} />
-      <Text
-        numberOfLines={1}
+    <View style={[styles.file, styles.fileWithActions, compact && styles.touchRow, ...rowFeedback]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`查看 diff ${label}`}
+        ref={(node) => {
+          onRegister(item.key, node);
+          setWebTitle(node, label);
+        }}
+        accessibilityState={Platform.OS !== "web" ? { selected: active } : {}}
+        {...(Platform.OS === "web"
+          ? { title: label, "aria-current": active ? "true" : undefined }
+          : {})}
+        onPress={() => onSelect(repository.id, file.path)}
+        onLongPress={(event) =>
+          onContextMenu({
+            repositoryId: repository.id,
+            path: file.path,
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+          })
+        }
+        {...(Platform.OS === "web"
+          ? {
+              onContextMenu: (event: {
+                clientX: number;
+                clientY: number;
+                preventDefault(): void;
+              }) => {
+                event.preventDefault();
+                onContextMenu({
+                  repositoryId: repository.id,
+                  path: file.path,
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+              },
+            }
+          : {})}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        onFocus={() => {
+          setFocused(true);
+          onFocusFile(item.key);
+        }}
+        onBlur={() => setFocused(false)}
         style={[
-          styles.fileText,
-          file.status === "deleted" && styles.deletedName,
-          tree && styles.fileName,
+          styles.fileOpen,
+          compact && styles.touchFileOpen,
+          { paddingLeft: tree ? 25 + Math.min(item.depth, 6) * 14 : 24 },
         ]}
       >
-        {basename(file.path)}
-      </Text>
-      {!tree ? (
-        <Text numberOfLines={1} style={[styles.small, styles.fileName]}>
-          {displayPath(parent)}
+        <Icon name={appearance.icon} color={appearance.color} />
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.fileText,
+            file.status === "deleted" && styles.deletedName,
+            tree && styles.fileName,
+          ]}
+        >
+          {basename(file.path)}
         </Text>
-      ) : null}
-      {file.staged && file.unstaged ? (
-        <View accessibilityLabel="部分暂存" style={styles.partialMarker} />
-      ) : null}
-      <Text style={[styles.fileStatus, { color: statusColor(file, theme) }]}>{status.badge}</Text>
-    </Pressable>
+        {!tree ? (
+          <Text numberOfLines={1} style={[styles.small, styles.fileName]}>
+            {displayPath(parent)}
+          </Text>
+        ) : null}
+        {file.staged && file.unstaged ? (
+          <View accessibilityLabel="部分暂存" style={styles.partialMarker} />
+        ) : null}
+        <Text style={[styles.fileStatus, { color: statusColor(file, theme) }]}>{status.badge}</Text>
+      </Pressable>
+      <View style={styles.fileActions}>
+        {file.unstaged ? (
+          <ToolButton
+            label={`暂存更改 ${repository.id}/${displayPath(file.path)}`}
+            icon="stage"
+            theme={theme}
+            disabled={busy}
+            onPress={() => onFileAction(repository.id, file.path, "stage")}
+          />
+        ) : null}
+        {file.staged ? (
+          <ToolButton
+            label={`取消暂存 ${repository.id}/${displayPath(file.path)}`}
+            icon="unstage"
+            theme={theme}
+            disabled={busy}
+            onPress={() => onFileAction(repository.id, file.path, "unstage")}
+          />
+        ) : null}
+      </View>
+    </View>
   );
 });
 
 export function WorkspaceChanges(props: {
+  workspaceId?: string;
   directory: string;
   name: string;
   theme: PluginTheme;
@@ -433,6 +460,7 @@ function WorkspacePane({ active, children }: { active: boolean; children: ReactN
 }
 
 function WorkspaceEditor({
+  workspaceId,
   directory,
   name,
   theme,
@@ -441,6 +469,7 @@ function WorkspaceEditor({
   active,
   viewSwitcher,
 }: {
+  workspaceId?: string;
   directory: string;
   name: string;
   theme: PluginTheme;
@@ -533,7 +562,7 @@ function WorkspaceEditor({
     }
   }, []);
   const changes = useChanges(directory, comparison, automatic && active, settings.refreshInterval);
-  const repositoryActions = useRepositoryActions(directory, changes.refresh);
+  const repositoryActions = useRepositoryActions(directory, changes.refresh, workspaceId);
   const repositories = changes.data?.repositories;
   const model = useMemo(() => {
     const repos = repositories ?? [];
@@ -794,6 +823,23 @@ function WorkspaceEditor({
       moveHunk(event.shiftKey ? -1 : 1);
     }
   }
+  const runFileAction = useCallback(
+    (repositoryId: string, path: string, action: "stage" | "unstage") => {
+      const entry = model.lookup.get(entryKey(repositoryId, path));
+      if (!entry) return;
+      const paths =
+        entry.file.status === "renamed" && entry.file.oldPath
+          ? [entry.file.oldPath, entry.file.path]
+          : [entry.file.path];
+      void repositoryActions.run({
+        directory,
+        repositoryId,
+        action,
+        paths: action === "stage" && entry.file.staged ? [entry.file.path] : paths,
+      });
+    },
+    [directory, model.lookup, repositoryActions.run],
+  );
   const renderRow = useCallback(
     ({ item }: { item: ChangeRow }) =>
       item.kind === "actions" ? (
@@ -818,8 +864,10 @@ function WorkspaceEditor({
           compact={compact}
           active={item.key === selectedKey}
           collapsed={!query && collapsed.has(item.key)}
+          busy={Boolean(repositoryActions.states[item.repository.id]?.busy)}
           onToggle={toggle}
           onSelect={selectFile}
+          onFileAction={runFileAction}
           onRegister={registerRow}
           onFocusFile={setFocusedFile}
           onContextMenu={setMenu}
@@ -836,6 +884,7 @@ function WorkspaceEditor({
       collapsed,
       toggle,
       selectFile,
+      runFileAction,
       registerRow,
       directory,
       repositoryActions.drafts,
@@ -959,10 +1008,6 @@ function WorkspaceEditor({
     ];
     const entry = model.lookup.get(entryKey(target.repositoryId, target.path));
     if (entry) {
-      const paths =
-        entry.file.status === "renamed" && entry.file.oldPath
-          ? [entry.file.oldPath, entry.file.path]
-          : [entry.file.path];
       if (entry.file.unstaged)
         items.push({
           key: "stage",
@@ -971,12 +1016,7 @@ function WorkspaceEditor({
           separator: true,
           disabled: Boolean(repositoryActions.states[target.repositoryId]?.busy),
           onPress: () => {
-            void repositoryActions.run({
-              directory,
-              repositoryId: target.repositoryId,
-              action: "stage",
-              paths: entry.file.staged ? [entry.file.path] : paths,
-            });
+            runFileAction(target.repositoryId, target.path, "stage");
           },
         });
       if (entry.file.staged)
@@ -987,12 +1027,7 @@ function WorkspaceEditor({
           separator: !entry.file.unstaged,
           disabled: Boolean(repositoryActions.states[target.repositoryId]?.busy),
           onPress: () => {
-            void repositoryActions.run({
-              directory,
-              repositoryId: target.repositoryId,
-              action: "unstage",
-              paths,
-            });
+            runFileAction(target.repositoryId, target.path, "unstage");
           },
         });
     }
@@ -1661,6 +1696,19 @@ function makeStyles(theme: PluginTheme) {
       borderColor: "transparent",
     },
     touchRow: { minHeight: 38 },
+    fileWithActions: { paddingVertical: 0, paddingRight: 6, gap: 0 },
+    fileOpen: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 28,
+      paddingVertical: 4,
+      paddingRight: 4,
+      gap: 7,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    touchFileOpen: { minHeight: 36 },
+    fileActions: { flexDirection: "row", alignItems: "center" },
     fileText: { maxWidth: "75%", color: c.foreground, fontSize: 12, lineHeight: 18, flexShrink: 1 },
     deletedName: { textDecorationLine: "line-through", color: c.foregroundMuted },
     fileStatus: { width: 13, textAlign: "center", fontSize: 11, fontWeight: "600", lineHeight: 18 },

@@ -110,16 +110,18 @@ export const RepositoryControls = memo(function RepositoryControls({
         <ToolButton
           theme={theme}
           icon="pull"
-          text="拉取"
-          label={`拉取${label}`}
+          text={repository.behindCount === null ? undefined : String(repository.behindCount)}
+          label={`拉取${label}${repository.behindCount === null ? "" : ` · ${repository.behindCount} 个待拉取提交`}`}
+          busy={state?.busy === "pull"}
           disabled={busy || !repository.branch || !repository.head}
           onPress={() => onRun({ directory, repositoryId: id, action: "pull" })}
         />
         <ToolButton
           theme={theme}
           icon="push"
-          text="推送"
-          label={`推送${label}`}
+          text={repository.aheadCount === null ? undefined : String(repository.aheadCount)}
+          label={`推送${label}${repository.aheadCount === null ? "" : ` · ${repository.aheadCount} 个待推送提交`}`}
+          busy={state?.busy === "push"}
           disabled={busy || !repository.branch || !repository.head}
           onPress={() => onRun({ directory, repositoryId: id, action: "push" })}
         />
@@ -178,7 +180,7 @@ export const RepositoryControls = memo(function RepositoryControls({
           : `已暂存 ${staged} · 未暂存 ${unstaged}`}
         {repository.upstream ? ` · ${repository.upstream}` : ""}
       </Text>
-      {busy ? (
+      {busy && state?.busy !== "generate" ? (
         <Text accessibilityLiveRegion="polite" style={{ color: c.foregroundMuted, fontSize: 11 }}>
           {
             {

@@ -36,6 +36,7 @@ export const generateCommitMessageRpc = defineRpc({
   name: "git.generate-commit-message",
   input: z.object({
     ...repositoryInput,
+    workspaceId: z.string().min(1).optional(),
     scope: z.enum(["staged", "all"]),
     generationId: z.string().uuid().optional(),
   }),
