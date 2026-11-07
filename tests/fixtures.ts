@@ -37,7 +37,11 @@ export async function fixture() {
     await command(path, "config", "user.email", "test@example.invalid");
     return path;
   }
-  return { base, repo, close: () => rm(base, { recursive: true, force: true }) };
+  return {
+    base,
+    repo,
+    close: () => rm(base, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }),
+  };
 }
 export async function addModule(parent: string, source: string, path: string): Promise<string> {
   await command(parent, "-c", "protocol.file.allow=always", "submodule", "add", "-q", source, path);

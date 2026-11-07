@@ -3,6 +3,26 @@ import type { DiffHunk, DiffLine } from "../shared/contracts";
 export type DiffRow =
   | { key: string; header: string }
   | { key: string; left: DiffLine | null; right: DiffLine | null };
+
+export function diffChangeTargets(rows: DiffRow[]): number[] {
+  const targets: number[] = [];
+  let foundChange = false;
+  for (const [index, row] of rows.entries()) {
+    if ("header" in row) {
+      targets.push(index);
+      foundChange = false;
+    } else if (
+      !foundChange &&
+      targets.length &&
+      [row.left?.kind, row.right?.kind].some((kind) => kind === "added" || kind === "removed")
+    ) {
+      targets[targets.length - 1] = index;
+      foundChange = true;
+    }
+  }
+  return targets;
+}
+
 export function buildDiffRows(hunks: DiffHunk[], split: boolean): DiffRow[] {
   const rows: DiffRow[] = [];
   for (const [hunkIndex, hunk] of hunks.entries()) {

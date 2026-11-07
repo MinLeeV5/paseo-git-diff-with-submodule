@@ -206,6 +206,16 @@ async function readRepository(
           .replace(/^\(detached\)$/, "") || null,
       recordedHead,
       indexedHead,
+      upstream:
+        statusOutput
+          .split("\0")
+          .find((line) => line.startsWith("# branch.upstream "))
+          ?.slice(18) || null,
+      stagedCount: [...status.entries.values()].filter((entry) => entry.staged).length,
+      unstagedCount:
+        [...status.entries.values()].filter((entry) => entry.unstaged).length +
+        status.untracked.length,
+      conflictCount: [...status.entries.values()].filter((entry) => entry.conflict).length,
       state: "ready",
       error: null,
       files,
@@ -241,6 +251,10 @@ export async function scanWorkspace(
     indexedHead: string | null,
   ): Promise<void> {
     const fallback: RepositorySnapshot = {
+      upstream: null,
+      stagedCount: 0,
+      unstagedCount: 0,
+      conflictCount: 0,
       id,
       directory: current,
       relativePath: id === "." ? "" : id,

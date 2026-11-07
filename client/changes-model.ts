@@ -23,7 +23,12 @@ export const comparisons: {
 ];
 export type FileEntry = { repository: RepositorySnapshot; file: FileChange };
 export type ChangeRow =
-  | { key: string; kind: "repository" | "notice"; repository: RepositorySnapshot; count: number }
+  | {
+      key: string;
+      kind: "repository" | "notice" | "actions";
+      repository: RepositorySnapshot;
+      count: number;
+    }
   | {
       key: string;
       kind: "folder";
@@ -66,6 +71,8 @@ export function buildChangeRows(
       count: files.length,
     });
     if (!query && collapsed.has(`repo:${repository.id}`)) continue;
+    if (repository.state === "ready")
+      rows.push({ key: `actions:${repository.id}`, kind: "actions", repository, count: 0 });
     if (!files.length || repository.state !== "ready") {
       rows.push({ key: `notice:${repository.id}`, kind: "notice", repository, count: 0 });
       continue;

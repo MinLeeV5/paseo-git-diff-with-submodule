@@ -14,6 +14,7 @@ const settingsTabs = [
   { id: "code", label: "代码", icon: "code" },
   { id: "comparison", label: "比较", icon: "split" },
   { id: "behavior", label: "行为", icon: "refresh" },
+  { id: "commit", label: "提交", icon: "check" },
 ] as const;
 type SettingsTab = (typeof settingsTabs)[number]["id"];
 
@@ -438,6 +439,43 @@ export function SettingsPanel({
                   { value: 1000000, label: "全文" },
                 ])}
                 {toggle("ignoreWhitespace", "忽略空白变化")}
+              </>
+            ) : active === "commit" ? (
+              <>
+                {section("提交信息", true)}
+                {select("commitMessageGenerator", "生成方式", [
+                  { value: "paseo", label: "Paseo AI" },
+                  { value: "local", label: "本地文件规则" },
+                ])}
+                <Text style={hintStyle}>
+                  {values.commitMessageGenerator === "paseo"
+                    ? "沿用 Paseo 的元数据模型与认证。生成后填入单行草稿，可编辑后再提交。"
+                    : "按文件名与变更类型生成，不调用 AI。"}
+                </Text>
+                {values.commitMessageGenerator === "paseo" ? (
+                  <View style={{ gap: 8, marginTop: 18 }}>
+                    <Text style={labelStyle}>自定义提示词</Text>
+                    <InputField
+                      theme={theme}
+                      accessibilityLabel="提交信息生成提示词"
+                      placeholder="例如：用中文，遵循 Conventional Commits，说明变更目的。"
+                      value={values.commitMessageInstructions}
+                      onChangeText={(value) => update({ commitMessageInstructions: value })}
+                      maxLength={8000}
+                      multiline
+                      textAlignVertical="top"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      containerStyle={{ alignItems: "flex-start", paddingVertical: 8 }}
+                      style={{ minHeight: 112 }}
+                    />
+                    <Text style={hintStyle}>
+                      留空时使用各仓库 paseo.json 中的
+                      metadataGeneration.commitMessage.instructions；未配置时使用默认提示词。
+                    </Text>
+                    <Text style={hintStyle}>此提示词保存在当前主机，适用于所有仓库。</Text>
+                  </View>
+                ) : null}
               </>
             ) : (
               <>

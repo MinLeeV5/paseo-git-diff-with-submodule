@@ -91,7 +91,7 @@ export function ScrollbarStyle({ theme, thin }: { theme: PluginTheme; thin: bool
     `
     ${panels} { --git-scroll-thumb: ${thumb}; --git-scroll-hover: ${hover}; }
     ${panels} :is([dir],input):not([data-git-code]):not([data-git-code] *) { font-family: ${c.ui}; }
-    ${panels} [data-git-field] input { outline: none; box-shadow: none; }
+    ${panels} [data-git-field] :is(input,textarea) { outline: none; box-shadow: none; }
     ${panels} * { scrollbar-width: ${thin ? "thin" : "auto"}; scrollbar-color: var(--git-scroll-thumb) transparent; }
     ${panels} *::-webkit-scrollbar { width: ${thin ? 7 : 12}px; height: ${thin ? 7 : 12}px; }
     ${panels} *::-webkit-scrollbar-track { background: transparent; }

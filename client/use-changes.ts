@@ -34,6 +34,7 @@ export function useChanges(
   useEffect(() => {
     let stopped = false;
     let fetching = false;
+    let queuedRefresh = false;
     let failures = 0;
     let active = AppState.currentState !== "background" && AppState.currentState !== "inactive";
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -52,7 +53,11 @@ export function useChanges(
         );
     }
     async function load(manual = false) {
-      if (fetching || stopped || (!active && !manual)) return;
+      if (stopped || (!active && !manual)) return;
+      if (fetching) {
+        if (manual) queuedRefresh = true;
+        return;
+      }
       fetching = true;
       cancelTimer();
       if (manual) setState((previous) => ({ ...previous, refreshing: true }));
@@ -85,7 +90,10 @@ export function useChanges(
           }));
       } finally {
         fetching = false;
-        schedule();
+        if (queuedRefresh && !stopped) {
+          queuedRefresh = false;
+          void load(true);
+        } else schedule();
       }
     }
     refresh.current = () => {

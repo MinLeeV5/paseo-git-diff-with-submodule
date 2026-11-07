@@ -1,7 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { createPaseoApi } from "@getpaseo/client";
+import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { settingsRpc } from "@getpaseo/plugin";
 import { defineConfig } from "vite";
+import { CommitMessageJobs } from "../../server/commit-message-jobs";
 import { fileCapabilities } from "../../server/files";
 import { mermaidRuntime } from "../../server/generated/mermaid";
 import { GitChangesService } from "../../server/service";
@@ -15,10 +19,34 @@ import {
   revealFileRpc,
 } from "../../shared/contracts";
 import { commitFileDiffRpc, commitRpc, historyRpc } from "../../shared/history-contracts";
+import { generateCommitMessageRpc, repositoryActionRpc } from "../../shared/repository-contracts";
 import { defaultSettings, panelSettingsSchema } from "../../shared/settings";
 
 const service = new GitChangesService();
+const generations = new CommitMessageJobs();
 const directory = process.env.PASEO_DIFF_ACCEPTANCE_DIRECTORY;
+// Opt in only for live AI acceptance. Normal UI previews stay self-contained.
+const daemon =
+  process.env.PASEO_DIFF_ACCEPTANCE_AI === "1"
+    ? new DaemonClient({
+        url: process.env.PASEO_DIFF_DAEMON_URL ?? "ws://127.0.0.1:6767/ws",
+        clientId: "git-diff-browser-ai-acceptance",
+        clientType: "cli",
+        localCredential: async () =>
+          (
+            await readFile(
+              resolve(
+                process.env.PASEO_DIFF_DAEMON_HOME ?? resolve(homedir(), ".paseo"),
+                "local-credential",
+              ),
+              "utf8",
+            )
+          ).trim(),
+        reconnect: { enabled: false },
+      })
+    : undefined;
+if (daemon) await daemon.connect();
+const paseo = daemon ? createPaseoApi(daemon) : undefined;
 const settingsContracts = settingsRpc("git-panel");
 const settingsPath = resolve(import.meta.dirname, "../../artifacts/preview-settings.json");
 let stored = { revision: "0", values: defaultSettings };
@@ -49,7 +77,11 @@ export default defineConfig({
     {
       name: "git-acceptance-rpc",
       configureServer(server) {
-        server.httpServer?.on("close", () => service.close());
+        server.httpServer?.on("close", () => {
+          service.close();
+          generations.clear();
+          void daemon?.close();
+        });
         server.middlewares.use(async (request, response, next) => {
           if (!request.url?.startsWith("/api/")) return next();
           response.setHeader("content-type", "application/json");
@@ -115,6 +147,20 @@ export default defineConfig({
               return;
             }
             for (const [contract, handler] of [
+              [
+                repositoryActionRpc,
+                (args: unknown) => service.repositoryAction(repositoryActionRpc.input.parse(args)),
+              ],
+              [
+                generateCommitMessageRpc,
+                (args: unknown) =>
+                  generations.request(generateCommitMessageRpc.input.parse(args), () =>
+                    service.generateCommitMessage(
+                      generateCommitMessageRpc.input.parse(args),
+                      paseo ? { paseo, settings: stored.values } : undefined,
+                    ),
+                  ),
+              ],
               [historyRpc, (args: unknown) => service.history(historyRpc.input.parse(args))],
               [commitRpc, (args: unknown) => service.commit(commitRpc.input.parse(args))],
               [

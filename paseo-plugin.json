@@ -1,7 +1,7 @@
 {
   "id": "git-diff-with-submodule",
   "name": "Git Diff with Submodules",
-  "description": "Review Git changes, commit graphs, and historical diffs across a repository and its nested submodules, including ignored submodules.",
+  "description": "Review and commit Git changes, pull and push repositories, and browse commit graphs and historical diffs across nested submodules.",
   "icon": "assets/icon.png",
   "media": [
     "assets/git-diff.png",
@@ -12,7 +12,7 @@
   "translations": {
     "zh-CN": {
       "name": "Git 差异 · 包含子模块",
-      "description": "递归查看主仓与 submodule 的 Git diff、分支提交图与历史文件差异，支持 ignore = all。"
+      "description": "递归查看主仓与 submodule 的 Git diff 和提交图，支持独立提交信息、自动生成、暂存、提交、拉取与推送。"
     }
   },
   "requirements": {

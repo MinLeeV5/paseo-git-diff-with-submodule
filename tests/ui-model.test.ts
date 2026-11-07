@@ -57,6 +57,6 @@ it("keeps an explicit clean or unavailable repository state and never invents fi
   const unavailable = { ...repository("child", []), state: "uninitialized" as const };
   expect(
     buildChangeRows([clean, unavailable], "", false, new Set()).map((row) => row.kind),
-  ).toEqual(["repository", "notice", "repository", "notice"]);
+  ).toEqual(["repository", "actions", "notice", "repository", "notice"]);
   expect(buildChangeRows([clean, unavailable], "missing", false, new Set())).toEqual([]);
 });

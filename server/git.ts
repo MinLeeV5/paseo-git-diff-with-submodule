@@ -33,7 +33,12 @@ for (const key of [
 export async function git(
   directory: string,
   args: string[],
-  options: { acceptDifference?: boolean; maxBuffer?: number; encoding?: BufferEncoding } = {},
+  options: {
+    acceptDifference?: boolean;
+    maxBuffer?: number;
+    encoding?: BufferEncoding;
+    timeout?: number;
+  } = {},
 ): Promise<string> {
   try {
     const result = await processes.run(() =>
@@ -41,7 +46,7 @@ export async function git(
         cwd: directory,
         env: environment,
         shell: false,
-        timeout: 15000,
+        timeout: options.timeout ?? 15000,
         maxBuffer: options.maxBuffer ?? 8 * 1024 * 1024,
         encoding: options.encoding,
       }),

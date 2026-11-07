@@ -50,12 +50,15 @@ import { filePaths } from "./file-paths";
 import { HistoryPanel } from "./history-panel";
 import { fileAppearance, Icon } from "./icons";
 import { previewKind } from "./preview-model";
+import { RepositoryControls } from "./repository-controls";
 import { SettingsPanel } from "./settings-panel";
 import { TabCache } from "./tab-cache";
 import { TabEditor } from "./tab-editor";
 import { panelTokens } from "./theme";
 import { useChanges } from "./use-changes";
 import { usePanelSettings } from "./use-panel-settings";
+import { useRepositoryActions } from "./use-repository-actions";
+import { useSystemBack } from "./use-system-back";
 import { ViewSwitcher, type WorkspaceView } from "./view-switcher";
 import { ScrollbarStyle, SidebarResizer } from "./web-chrome";
 
@@ -451,6 +454,7 @@ function WorkspaceEditor({
   const [width, setWidth] = useState<number | null>(null);
   const compact = hostCompact || (width !== null && width < 720);
   const [page, setPage] = useState<"changes" | "diff">("changes");
+  useSystemBack(active && compact && page === "diff", () => setPage("changes"));
   const { values: settings, update: updateSettings } = preferences;
   const { comparison, tree, automatic, mode, context, ignoreWhitespace } = settings;
   const [filter, setFilter] = useState("");
@@ -529,6 +533,7 @@ function WorkspaceEditor({
     }
   }, []);
   const changes = useChanges(directory, comparison, automatic && active, settings.refreshInterval);
+  const repositoryActions = useRepositoryActions(directory, changes.refresh);
   const repositories = changes.data?.repositories;
   const model = useMemo(() => {
     const repos = repositories ?? [];
@@ -790,23 +795,36 @@ function WorkspaceEditor({
     }
   }
   const renderRow = useCallback(
-    ({ item }: { item: ChangeRow }) => (
-      <ChangeItem
-        item={item}
-        styles={styles}
-        theme={theme}
-        name={name}
-        tree={tree}
-        compact={compact}
-        active={item.key === selectedKey}
-        collapsed={!query && collapsed.has(item.key)}
-        onToggle={toggle}
-        onSelect={selectFile}
-        onRegister={registerRow}
-        onFocusFile={setFocusedFile}
-        onContextMenu={setMenu}
-      />
-    ),
+    ({ item }: { item: ChangeRow }) =>
+      item.kind === "actions" ? (
+        <RepositoryControls
+          directory={directory}
+          repository={item.repository}
+          draft={repositoryActions.drafts[item.repository.id] ?? ""}
+          state={repositoryActions.states[item.repository.id]}
+          theme={theme}
+          onDraft={repositoryActions.setDraft}
+          onRun={repositoryActions.run}
+          onGenerate={repositoryActions.generateMessage}
+          onClear={repositoryActions.clearMessage}
+        />
+      ) : (
+        <ChangeItem
+          item={item}
+          styles={styles}
+          theme={theme}
+          name={name}
+          tree={tree}
+          compact={compact}
+          active={item.key === selectedKey}
+          collapsed={!query && collapsed.has(item.key)}
+          onToggle={toggle}
+          onSelect={selectFile}
+          onRegister={registerRow}
+          onFocusFile={setFocusedFile}
+          onContextMenu={setMenu}
+        />
+      ),
     [
       styles,
       theme,
@@ -819,6 +837,13 @@ function WorkspaceEditor({
       toggle,
       selectFile,
       registerRow,
+      directory,
+      repositoryActions.drafts,
+      repositoryActions.states,
+      repositoryActions.setDraft,
+      repositoryActions.run,
+      repositoryActions.generateMessage,
+      repositoryActions.clearMessage,
     ],
   );
   const hasProblems = Boolean(
@@ -932,6 +957,45 @@ function WorkspaceEditor({
         },
       },
     ];
+    const entry = model.lookup.get(entryKey(target.repositoryId, target.path));
+    if (entry) {
+      const paths =
+        entry.file.status === "renamed" && entry.file.oldPath
+          ? [entry.file.oldPath, entry.file.path]
+          : [entry.file.path];
+      if (entry.file.unstaged)
+        items.push({
+          key: "stage",
+          label: "暂存更改",
+          icon: "stage",
+          separator: true,
+          disabled: Boolean(repositoryActions.states[target.repositoryId]?.busy),
+          onPress: () => {
+            void repositoryActions.run({
+              directory,
+              repositoryId: target.repositoryId,
+              action: "stage",
+              paths: entry.file.staged ? [entry.file.path] : paths,
+            });
+          },
+        });
+      if (entry.file.staged)
+        items.push({
+          key: "unstage",
+          label: "取消暂存",
+          icon: "unstage",
+          separator: !entry.file.unstaged,
+          disabled: Boolean(repositoryActions.states[target.repositoryId]?.busy),
+          onPress: () => {
+            void repositoryActions.run({
+              directory,
+              repositoryId: target.repositoryId,
+              action: "unstage",
+              paths,
+            });
+          },
+        });
+    }
     if (previewKind(target.path))
       items.push({
         key: "preview",
@@ -1026,12 +1090,25 @@ function WorkspaceEditor({
         </View>
       ) : null}
       <View style={styles.body}>
-        {(!compact && settings.sidebarVisible) || (compact && page === "changes") ? (
+        {compact || settings.sidebarVisible ? (
           <View
+            ref={(node) => {
+              if (Platform.OS !== "web" || !node) return;
+              const element = node as unknown as { style: { visibility: string }; inert: boolean };
+              element.style.visibility = compact && page !== "changes" ? "hidden" : "visible";
+              element.inert = compact && page !== "changes";
+            }}
+            accessibilityElementsHidden={compact && page !== "changes"}
+            importantForAccessibility={
+              compact && page !== "changes" ? "no-hide-descendants" : "auto"
+            }
+            pointerEvents={compact && page !== "changes" ? "none" : "auto"}
+            {...(Platform.OS === "web" ? { "aria-hidden": compact && page !== "changes" } : {})}
             style={[
               styles.rail,
               { width: Math.min(settings.sidebarWidth, Math.max(180, (width ?? 1000) - 360)) },
               compact && styles.compactRail,
+              compact && page !== "changes" && { position: "absolute", inset: 0, opacity: 0 },
             ]}
           >
             <View style={styles.titlebar}>

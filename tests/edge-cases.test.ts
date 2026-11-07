@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { buildDiffRows } from "../client/diff-model";
+import { buildDiffRows, diffChangeTargets } from "../client/diff-model";
 import { readFileDiff } from "../server/diff";
 import { parseHunks } from "../server/parsers";
 import { RepositoryScanCache, scanWorkspace } from "../server/repositories";
@@ -62,6 +62,26 @@ it("can hide whitespace-only patches and expand unchanged context", async () => 
   const full = await readFileDiff(repo, "file.txt", "head", 1000000);
   expect(full.hunks[0].lines.length).toBeGreaterThan(normal.hunks[0].lines.length);
   expect((await readFileDiff(repo, "file.txt", "head", 3, true)).hunks).toEqual([]);
+});
+
+it("targets actual changes after long context in unified and split diffs", () => {
+  const context = Array.from({ length: 500 }, (_, index) => ` context ${index}`).join("\n");
+  const hunks = parseHunks(
+    `@@ -1,501 +1,501 @@\n${context}\n-old\n+new\n@@ -900,1 +900,2 @@\n context\n+added\n`,
+  );
+  for (const split of [false, true]) {
+    const rows = buildDiffRows(hunks, split);
+    const targets = diffChangeTargets(rows);
+    expect(targets).toHaveLength(2);
+    expect(targets[0]).toBe(501);
+    expect(rows[targets[0]]).toMatchObject({ left: { kind: "removed", oldLine: 501 } });
+    expect(rows[targets[1]]).toMatchObject(
+      split
+        ? { right: { kind: "added", newLine: 901 } }
+        : { left: { kind: "added", newLine: 901 } },
+    );
+  }
+  expect(diffChangeTargets([])).toEqual([]);
 });
 
 it("coalesces a slow scan even when the normal cache lifetime has elapsed", async () => {

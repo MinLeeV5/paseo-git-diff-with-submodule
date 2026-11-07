@@ -34,6 +34,8 @@ export const panelSettingsSchema = z.object({
   previewDefault: z.boolean().default(false),
   tabCacheSize: z.number().int().min(1).max(MAX_CACHED_TABS).default(5),
   scrollbar: z.enum(["thin", "auto"]).default("thin"),
+  commitMessageGenerator: z.enum(["paseo", "local"]).default("paseo"),
+  commitMessageInstructions: z.string().max(8000).default(""),
 });
 export type PanelSettings = z.infer<typeof panelSettingsSchema>;
 export const defaultSettings = panelSettingsSchema.parse({});

@@ -9,12 +9,73 @@ import type {
   HistoryInput,
 } from "../shared/history-contracts";
 import { parsePreviewLink } from "../shared/preview-links";
+import type { RepositoryAction } from "../shared/repository-contracts";
+import type { PanelSettings } from "../shared/settings";
+import { type CommitMessagePaseo, generatePaseoCommitMessage } from "./commit-message";
 import { readFileDiff } from "./diff";
 import { readContent, revealInFileManager } from "./files";
 import { readCommit, readCommitDiff, readHistory } from "./history";
 import { RepositoryScanCache, resolveFile, scanWorkspace } from "./repositories";
+import { generateCommitMessage, runRepositoryAction } from "./repository-actions";
 
 export class GitChangesService {
+  private readonly operations = new Set<string>();
+  private readonly generationController = new AbortController();
+
+  async repositoryAction(input: RepositoryAction) {
+    const snapshot = await this.snapshot({
+      directory: input.directory,
+      comparison: "head",
+      force: true,
+    });
+    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    if (repository?.state !== "ready") throw new Error("所属仓库不可用，请刷新后重试。");
+    if (this.operations.has(repository.directory))
+      throw new Error("此仓库正在执行 Git 操作，请等待完成。");
+    this.operations.add(repository.directory);
+    try {
+      return await runRepositoryAction(repository, input);
+    } finally {
+      this.operations.delete(repository.directory);
+      this.snapshots.clear();
+      this.patches.clear();
+      this.pendingPatches.clear();
+      this.scanCache.clear();
+    }
+  }
+
+  async generateCommitMessage(
+    input: { directory: string; repositoryId: string; scope: "staged" | "all" },
+    generation?: {
+      paseo: CommitMessagePaseo;
+      settings: Pick<PanelSettings, "commitMessageGenerator" | "commitMessageInstructions">;
+    },
+  ) {
+    const snapshot = await this.snapshot({
+      directory: input.directory,
+      comparison: input.scope === "staged" ? "staged" : "head",
+      force: true,
+    });
+    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    if (repository?.state !== "ready") throw new Error("所属仓库不可用，请刷新后重试。");
+    if (this.operations.has(repository.directory))
+      throw new Error("此仓库正在执行 Git 操作，请等待完成。");
+    if (!generation || generation.settings.commitMessageGenerator === "local")
+      return generateCommitMessage(repository, input.scope);
+    this.operations.add(repository.directory);
+    try {
+      return await generatePaseoCommitMessage(
+        generation.paseo,
+        snapshot.directory,
+        repository,
+        input.scope,
+        generation.settings.commitMessageInstructions,
+        this.generationController.signal,
+      );
+    } finally {
+      this.operations.delete(repository.directory);
+    }
+  }
   private readonly commits = new Map<string, Promise<CommitDetails>>();
 
   private async historyRepository(input: { directory: string; repositoryId: string }) {
@@ -302,6 +363,7 @@ export class GitChangesService {
   }
 
   close(): void {
+    this.generationController.abort();
     this.commits.clear();
     this.snapshots.clear();
     this.patches.clear();

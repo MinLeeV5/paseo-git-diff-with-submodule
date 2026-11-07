@@ -1,8 +1,8 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { DiffLine, FileDiff } from "../shared/contracts";
-import { buildDiffRows, type DiffRow } from "./diff-model";
+import { buildDiffRows, type DiffRow, diffChangeTargets } from "./diff-model";
 import { Icon } from "./icons";
 import { diffSyntaxStates, languageForPath } from "./syntax";
 import { SyntaxText } from "./syntax-text";
@@ -63,6 +63,7 @@ export function DiffViewer({
     [diff.hunks, language, syntaxHighlight],
   );
   const [width, setWidth] = useState(360);
+  const [listReady, setListReady] = useState(false);
   const [horizontalOffsets, setHorizontalOffsets] = useState([0, 0]);
   const ratio = Math.max(0.2, Math.min(0.8, splitRatio));
   const rootRef = useRef<View>(null);
@@ -109,12 +110,33 @@ export function DiffViewer({
     return () => node.removeEventListener("wheel", wheel);
   }, [mode, wrap, diff.state]);
   const listRef = useRef<FlatList<ViewerRow>>(null);
+  const targetRow = useRef<View>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const retried = useRef(false);
+  const retries = useRef(0);
+  const pendingTarget = useRef<number | undefined>(undefined);
   const rows = useMemo<ViewerRow[]>(
     () => buildDiffRows(diff.hunks, mode === "split"),
     [diff.hunks, mode],
   );
+  const targets = useMemo(() => diffChangeTargets(rows), [rows]);
+  const activeTarget = useRef(targets[navigation.index]);
+  activeTarget.current = targets[navigation.index];
+  const revealRow = useCallback((index: number) => {
+    const list = listRef.current;
+    const responder = list?.getScrollResponder() as unknown as {
+      getInnerViewRef?(): View | null;
+    } | null;
+    const inner = responder?.getInnerViewRef?.();
+    if (targetRow.current && inner && activeTarget.current === index)
+      targetRow.current.measureLayout(
+        inner,
+        (_x, y) => {
+          if (activeTarget.current === index) list?.scrollToOffset({ offset: y, animated: false });
+        },
+        () => list?.scrollToIndex({ index, animated: false, viewPosition: 0 }),
+      );
+    else list?.scrollToIndex({ index, animated: false, viewPosition: 0 });
+  }, []);
   const layout = useMemo(() => {
     let offset = 0;
     const hunks: number[] = [];
@@ -148,14 +170,20 @@ export function DiffViewer({
     effectiveWrap || mode === "split" ? width : Math.max(width, columns * fontSize * 0.65 + 106);
   const textWidth = columns * fontSize * 0.65 + 18;
   useEffect(() => {
-    retried.current = false;
-    const index = layout.hunks[navigation.index];
-    if (index !== undefined)
-      listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 });
+    if (!listReady) return;
+    retries.current = 0;
+    const index = targets[navigation.index];
+    pendingTarget.current = index;
+    if (index !== undefined) {
+      const reveal = () => revealRow(index);
+      // Wrapping reparents the list and changes row heights. Let its layout settle.
+      if (effectiveWrap) retryTimer.current = setTimeout(reveal, 0);
+      else reveal();
+    }
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };
-  }, [navigation, layout.hunks]);
+  }, [navigation, targets, listReady, effectiveWrap, revealRow]);
 
   function background(line: DiffLine | null, gutter = false) {
     return line?.kind === "added"
@@ -230,7 +258,11 @@ export function DiffViewer({
   function renderRow({ item, index }: { item: ViewerRow; index: number }) {
     if ("header" in item)
       return (
-        <View style={[styles.hunk, index === layout.hunks[navigation.index] && styles.activeHunk]}>
+        <View
+          ref={index === activeTarget.current ? targetRow : undefined}
+          collapsable={index !== activeTarget.current}
+          style={[styles.hunk, index === layout.hunks[navigation.index] && styles.activeHunk]}
+        >
           <Icon name="code" color={colors.foregroundMuted} size={12} />
           <Text selectable numberOfLines={1} style={styles.hunkText}>
             {item.header}
@@ -239,7 +271,11 @@ export function DiffViewer({
       );
     if (mode === "split")
       return (
-        <View style={styles.line}>
+        <View
+          ref={index === activeTarget.current ? targetRow : undefined}
+          collapsable={index !== activeTarget.current}
+          style={styles.line}
+        >
           {splitCell(item.left, false)}
           {splitCell(item.right, true)}
         </View>
@@ -247,7 +283,11 @@ export function DiffViewer({
     const line = item.left;
     if (!line) return null;
     return (
-      <View style={[styles.line, { backgroundColor: background(line) }]}>
+      <View
+        ref={index === activeTarget.current ? targetRow : undefined}
+        collapsable={index !== activeTarget.current}
+        style={[styles.line, { backgroundColor: background(line) }]}
+      >
         {lineNumbers ? (
           <Text selectable style={[styles.gutter, { backgroundColor: background(line, true) }]}>
             {line.oldLine}
@@ -314,22 +354,34 @@ export function DiffViewer({
     <FlatList
       ref={listRef}
       testID="diff-lines"
+      onLayout={() => setListReady(true)}
       style={{ flex: 1, minHeight: 0, width: contentWidth }}
       data={rows}
       renderItem={renderRow}
       keyExtractor={(row) => row.key}
       initialNumToRender={40}
+      initialScrollIndex={!effectiveWrap ? targets[navigation.index] : undefined}
       maxToRenderPerBatch={32}
       windowSize={7}
       getItemLayout={!effectiveWrap ? (_, index) => layout.sizes[index] : undefined}
+      onContentSizeChange={() => {
+        const index = pendingTarget.current;
+        if (index === undefined) return;
+        if (retryTimer.current) clearTimeout(retryTimer.current);
+        // A wrapped list can measure its first visible cells before its leading
+        // spacer grows. Reveal again after the content has its final geometry.
+        retryTimer.current = setTimeout(() => {
+          pendingTarget.current = undefined;
+          revealRow(index);
+        }, 100);
+      }}
       onScrollToIndexFailed={({ index, averageItemLength }) => {
+        pendingTarget.current = index;
         listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
-        if (!retried.current) {
-          retried.current = true;
-          retryTimer.current = setTimeout(
-            () => listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0 }),
-            100,
-          );
+        if (retryTimer.current) clearTimeout(retryTimer.current);
+        if (retries.current < 50) {
+          retries.current++;
+          retryTimer.current = setTimeout(() => revealRow(index), 100);
         }
       }}
     />

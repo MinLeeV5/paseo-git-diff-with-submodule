@@ -7,6 +7,7 @@ import { parsePreviewLink } from "../shared/preview-links";
 import { ToolButton } from "./controls";
 import { Icon } from "./icons";
 import { hasMermaid } from "./mermaid-preview";
+import { NativeMarkdown } from "./native-markdown";
 import { type PreviewKind, previewDocument } from "./preview-model";
 import { panelTokens } from "./theme";
 
@@ -153,7 +154,7 @@ export function FilePreview({
   }, [diagrams, loadRenderer, runtime, runtimeError]);
   const document = useMemo(
     () =>
-      current.data && ["text", "image"].includes(current.data.state)
+      Platform.OS === "web" && current.data && ["text", "image"].includes(current.data.state)
         ? previewDocument(
             current.data.content,
             kind,
@@ -290,6 +291,19 @@ export function FilePreview({
         source={{ uri: current.data.content }}
         resizeMode="contain"
         style={{ flex: 1 }}
+      />
+    );
+  if (kind === "markdown")
+    return (
+      <NativeMarkdown
+        key={key}
+        content={current.data.content}
+        theme={theme}
+        fontSize={fontSize}
+        fontFamily={fontFamily}
+        fontWeight={fontWeight}
+        navigation={navigation}
+        onNavigate={onNavigate}
       />
     );
   return (
