@@ -1,0 +1,135 @@
+docs/verification.md
+  d9b8af8ad25dd66e 3-33
+client/changes-model.ts
+  d9b8af8ad25dd66e 28-31,74-75
+server/git.ts
+  d9b8af8ad25dd66e 36-41,49
+tests/browser/vite.config.ts
+  d9b8af8ad25dd66e 2,4-5,8,22,26,28-49,80-84,150-163
+server/commit-message-jobs.ts
+  d9b8af8ad25dd66e 1-63
+tests/system-back.test.ts
+  d9b8af8ad25dd66e 1-102
+client/native-markdown.tsx
+  d9b8af8ad25dd66e 1-234
+client/web-chrome.tsx
+  d9b8af8ad25dd66e 94
+server/service.ts
+  d9b8af8ad25dd66e 12-14,19,22-78
+shared/contracts.ts
+  d9b8af8ad25dd66e 36-39
+index.server.ts
+  d9b8af8ad25dd66e 2,16-17,21-22,24,28-33,44-47
+scripts/build-assets.ts
+  d9b8af8ad25dd66e 68-72
+tests/ui-model.test.ts
+  d9b8af8ad25dd66e 60
+server/repository-actions.ts
+  d9b8af8ad25dd66e 2-52,54-184,203-205,214-253
+tests/browser/native-preview.tsx
+  d9b8af8ad25dd66e 1-57
+paseo-plugin.json
+  d9b8af8ad25dd66e 4,15
+client/use-system-back.ts
+  d9b8af8ad25dd66e 1-17
+tests/browser/entry.tsx
+  d9b8af8ad25dd66e 5,60-70
+docs/vscode-gap-analysis.md
+  d9b8af8ad25dd66e 3,20-38,44,50,74,78
+client/diff-viewer.tsx
+  d9b8af8ad25dd66e 2,5,66,113,115-116,121-139,173-182,186,261-265,274-278,286-290,357,363,367-377,379,381-384
+README.md
+  d9b8af8ad25dd66e 37,48-50,55-81,91,99
+client/use-changes.ts
+  d9b8af8ad25dd66e 37,56-60,93-96
+tests/fixtures.ts
+  d9b8af8ad25dd66e 40-44
+server/repositories.ts
+  d9b8af8ad25dd66e 209-218,254-257
+client/diff-model.ts
+  d9b8af8ad25dd66e 6-25
+client/settings-panel.tsx
+  d9b8af8ad25dd66e 17,443-478
+package.json
+  d9b8af8ad25dd66e 5
+tests/edge-cases.test.ts
+  d9b8af8ad25dd66e 2,67-84
+client/repository-controls.tsx
+  d9b8af8ad25dd66e 1-222
+OVERVIEW.zh-CN.md
+  d9b8af8ad25dd66e 7,9,13
+client/file-preview.tsx
+  d9b8af8ad25dd66e 10,157,296-306
+tests/repository-actions.test.ts
+  d9b8af8ad25dd66e 1-412
+tests/markdown-model.test.ts
+  d9b8af8ad25dd66e 1-54
+server/commit-message.ts
+  d9b8af8ad25dd66e 1-205,207-319
+client/system-back.ts
+  d9b8af8ad25dd66e 1-57
+shared/settings.ts
+  d9b8af8ad25dd66e 37-38
+OVERVIEW.md
+  d9b8af8ad25dd66e 7,9,11,13
+shared/repository-contracts.ts
+  d9b8af8ad25dd66e 1-55
+client/generated/icons.ts
+  d9b8af8ad25dd66e 2
+client/changes-panel.tsx
+  d9b8af8ad25dd66e 61,457,536,798-827,840-846,960-998,1093,1095-1106,1111
+client/markdown-model.ts
+  d9b8af8ad25dd66e 1-51
+client/use-repository-actions.ts
+  d9b8af8ad25dd66e 1-85,89-109
+tests/commit-message.test.ts
+  d9b8af8ad25dd66e 1-427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "eb412d68bc7f56650566174075545c446b758b0d",
+  "prompts": {
+    "4895baf09451e9d7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b00f-ecfc-7f60-bdb8-a7e33ed640b1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 521108,
+        "output_tokens": 161666,
+        "cache_read_tokens": 26165378,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "d9b8af8ad25dd66e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b486-12a8-7580-b51c-1f3c583c8ee8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 3051,
+      "total_deletions": 255,
+      "accepted_lines": 2873,
+      "overriden_lines": 8,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/9307bcb258bb7fc869fca86e07a0d3dc3ecf9559fca2520e770299b5f11ed533",
+      "token_usage": {
+        "input_tokens": 603595,
+        "output_tokens": 175681,
+        "cache_read_tokens": 30546304,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}

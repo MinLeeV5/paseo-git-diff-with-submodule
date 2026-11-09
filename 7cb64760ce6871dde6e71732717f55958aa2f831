@@ -1,0 +1,111 @@
+server/history.ts
+  4895baf09451e9d7 1-251
+client/commit-details.tsx
+  4895baf09451e9d7 1-400
+docs/verification.md
+  4895baf09451e9d7 3-28,40
+client/commit-graph.tsx
+  4895baf09451e9d7 1-303
+shared/settings.ts
+  4895baf09451e9d7 15
+scripts/verify-installed.ts
+  4895baf09451e9d7 17,59-91,123-133
+client/graph-model.ts
+  4895baf09451e9d7 1-71
+client/controls.tsx
+  4895baf09451e9d7 2-13,27-129
+OVERVIEW.zh-CN.md
+  4895baf09451e9d7 3-4,13
+tests/browser/vite.config.ts
+  4895baf09451e9d7 17,117-129
+client/changes-panel.tsx
+  4895baf09451e9d7 10-18,27,45,50,329,372-429,438,446,531,684-701,748,1038,1101-1113,1122,1214
+OVERVIEW.md
+  4895baf09451e9d7 5-6,13
+README.md
+  4895baf09451e9d7 5,9-10,16,38-39,54,58-62
+client/history-panel.tsx
+  4895baf09451e9d7 1-11,13-16,18-35,37-42,44-265,267-320,322-326,331-334,337-375,377-697
+client/view-switcher.tsx
+  4895baf09451e9d7 1-209
+client/use-history.ts
+  4895baf09451e9d7 1-152
+client/use-panel-settings.ts
+  4895baf09451e9d7 7-8
+shared/history-contracts.ts
+  4895baf09451e9d7 1-73
+client/web-chrome.tsx
+  4895baf09451e9d7 4,14,21-27,43,48-49,76,85-86,92-93,95-100,102,107-232
+client/settings-panel.tsx
+  4895baf09451e9d7 3,7,217,351-352,363-365
+docs/vscode-gap-analysis.md
+  4895baf09451e9d7 37-38,78
+package.json
+  4895baf09451e9d7 3,5
+paseo-plugin.json
+  4895baf09451e9d7 4,6-11,15
+client/use-changes.ts
+  4895baf09451e9d7 103-105
+tests/history.test.ts
+  4895baf09451e9d7 1-232
+shared/version.ts
+  4895baf09451e9d7 2
+index.server.ts
+  4895baf09451e9d7 14,21-23
+tests/graph-model.test.ts
+  4895baf09451e9d7 1-73
+server/service.ts
+  4895baf09451e9d7 5-10,14,18-95,305
+client/theme.ts
+  4895baf09451e9d7 58-59
+client/settings-select.tsx
+  4895baf09451e9d7 27,32-34,50-51,57-61,85-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "7cb64760ce6871dde6e71732717f55958aa2f831",
+  "prompts": {
+    "102169a74ef496b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a5f0-492d-7750-b5d7-23a2a62617b5",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 1080903,
+        "output_tokens": 444079,
+        "cache_read_tokens": 53987968,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "4895baf09451e9d7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1b00f-ecfc-7f60-bdb8-a7e33ed640b1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 3666,
+      "total_deletions": 649,
+      "accepted_lines": 3040,
+      "overriden_lines": 17,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/0e0bb513be795310b8f7b28ae5721d4878066d80bca35635132074ee8c858fed",
+      "token_usage": {
+        "input_tokens": 521108,
+        "output_tokens": 161666,
+        "cache_read_tokens": 26165378,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
