@@ -145,12 +145,13 @@ it("keeps exact rename and deletion paths, binary states and historical size lim
   await put(directory, "delete.txt", "delete\n");
   await put(directory, "binary.dat", Buffer.from([0, 1, 2]));
   await commit(directory);
-  const path = "重命名\tline\nbreak.txt";
+  const path = process.platform === "win32" ? "重命名 line break.txt" : "重命名\tline\nbreak.txt";
+  const literal = process.platform === "win32" ? "[literal].txt" : ":(glob)*.txt";
   await command(directory, "mv", "old.txt", path);
   await command(directory, "rm", "delete.txt");
   await put(directory, "binary.dat", Buffer.from([0, 3, 4]));
   await put(directory, "big.txt", "x".repeat(1024 * 1024 + 1));
-  await put(directory, ":(glob)*.txt", "literal\n");
+  await put(directory, literal, "literal\n");
   await commit(directory);
   const oid = await head(directory);
   expect((await details(oid)).files).toEqual(
@@ -163,7 +164,7 @@ it("keeps exact rename and deletion paths, binary states and historical size lim
   expect((await diff(oid, "delete.txt")).patch).toContain("-delete");
   expect((await diff(oid, "binary.dat")).state).toBe("binary");
   expect((await diff(oid, "big.txt")).state).toBe("too_large");
-  expect((await diff(oid, ":(glob)*.txt")).patch).toContain("+literal");
+  expect((await diff(oid, literal)).patch).toContain("+literal");
 });
 
 it("supports empty repositories, empty commits and detached HEAD", async () => {

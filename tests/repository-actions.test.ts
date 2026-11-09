@@ -204,7 +204,7 @@ describe("repository changes", () => {
 
   it("restages edited renames and unstages unborn files without changing working content", async () => {
     const { directory, service } = await setup();
-    const path = "odd\nfile.txt";
+    const path = process.platform === "win32" ? "odd [file].txt" : "odd\nfile.txt";
     await put(directory, path, "staged\n");
     await service.repositoryAction({
       directory,
@@ -352,14 +352,14 @@ describe("repository changes", () => {
       expectedHead: await currentHead(directory),
     });
     try {
-      await vi.waitFor(() => expect(started).toBe(true));
+      await vi.waitFor(() => expect(started).toBe(true), { timeout: 15000 });
       await expect(
         service.repositoryAction({ directory, repositoryId: ".", action: "unstage" }),
       ).rejects.toThrow("正在执行");
     } finally {
       release();
+      await operation;
     }
-    await operation;
   });
 });
 
@@ -427,6 +427,7 @@ describe("repository synchronization", () => {
     await put(source, "child.txt", "base\n");
     await commit(source);
     const child = await addModule(directory, source, "modules/child");
+    await command(child, "config", "core.autocrlf", "false");
     await commit(directory);
     const mainHead = await currentHead(directory);
     const remote = join(f.base, "child.git");

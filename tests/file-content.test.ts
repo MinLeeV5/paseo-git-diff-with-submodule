@@ -1,7 +1,7 @@
 import { symlink, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, type TestContext } from "vitest";
 import { revealTarget } from "../server/files";
 import { GitChangesService } from "../server/service";
 import { addModule, command, commit, fixture, put } from "./fixtures";
@@ -17,6 +17,15 @@ async function setup() {
   const service = new GitChangesService();
   cleanups.push(() => service.close());
   return { ...f, directory, service };
+}
+async function linkFile(context: TestContext, target: string, path: string) {
+  try {
+    await symlink(target, path);
+  } catch (error) {
+    if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM")
+      return context.skip("File symlinks require Windows Developer Mode or elevation");
+    throw error;
+  }
 }
 it("previews the actual index separately from working content including staged image bytes", async () => {
   const { directory, service } = await setup();
@@ -54,15 +63,22 @@ it("returns deliberate states for deleted, binary and large files", async () => 
   expect((await service.content({ ...input, path: "binary.dat" })).state).toBe("binary");
   expect((await service.content({ ...input, path: "large.html" })).state).toBe("too_large");
 });
-it("rejects unknown files, repository escape paths and worktree symlinks", async () => {
+it("rejects unknown files and repository escape paths", async () => {
   const { directory, service, base } = await setup();
   await put(directory, "known.md", "known");
   await commit(directory);
   await put(base, "private.md", "outside");
-  await symlink(join(base, "private.md"), join(directory, "linked.md"));
   const input = { directory, repositoryId: ".", comparison: "head" as const };
   await expect(service.content({ ...input, path: "../private.md" })).rejects.toThrow();
   await expect(service.content({ ...input, path: "known.md" })).rejects.toThrow();
+});
+it("rejects worktree file symlinks", async (context) => {
+  const { directory, service, base } = await setup();
+  await put(directory, "known.md", "known");
+  await commit(directory);
+  await put(base, "private.md", "outside");
+  await linkFile(context, join(base, "private.md"), join(directory, "linked.md"));
+  const input = { directory, repositoryId: ".", comparison: "head" as const };
   expect((await service.content({ ...input, path: "linked.md" })).state).toBe("unsupported");
 });
 it("reveals deleted files at their nearest existing parent without shell interpretation", async () => {
@@ -142,28 +158,24 @@ it("opens unchanged linked files, root-relative paths, encoded names and nested 
     kind: "directory",
   });
 });
-it("confines linked and directly requested workspace files including symlink aliases", async () => {
+it("confines linked and directly requested workspace files", async () => {
   const { directory, service, base } = await setup();
   await put(directory, "docs/source.md", "source");
   await put(directory, "clean.md", "clean");
   await commit(directory);
   await put(base, "outside.md", "private");
-  await symlink(join(base, "outside.md"), join(directory, "outside-link.md"));
-  await symlink(join(directory, ".git/config"), join(directory, "internal-link.md"));
   await put(directory, "large.txt", "x".repeat(1024 * 1024 + 1));
   const source = { directory, repositoryId: ".", path: "docs/source.md" };
   for (const href of [
     "../../outside.md",
     pathToFileURL(join(base, "outside.md")).href,
-    "../outside-link.md",
     "../.git/config",
-    "../internal-link.md",
     "missing.md",
     "javascript:bad",
   ]) {
     await expect(service.resolveLink({ ...source, href })).rejects.toThrow();
   }
-  for (const path of ["../outside.md", "outside-link.md", ".git/config", "internal-link.md"]) {
+  for (const path of ["../outside.md", ".git/config"]) {
     await expect(
       service.content({
         directory,
@@ -185,4 +197,30 @@ it("confines linked and directly requested workspace files including symlink ali
       })
     ).state,
   ).toBe("too_large");
+});
+it("confines workspace file symlink aliases", async (context) => {
+  const { directory, service, base } = await setup();
+  await put(directory, "docs/source.md", "source");
+  await put(base, "outside.md", "private");
+  await linkFile(context, join(base, "outside.md"), join(directory, "outside-link.md"));
+  await linkFile(context, join(directory, ".git/config"), join(directory, "internal-link.md"));
+  for (const path of ["outside-link.md", "internal-link.md"]) {
+    await expect(
+      service.resolveLink({
+        directory,
+        repositoryId: ".",
+        path: "docs/source.md",
+        href: `../${path}`,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      service.content({
+        directory,
+        repositoryId: ".",
+        path,
+        comparison: "head",
+        scope: "workspace",
+      }),
+    ).rejects.toThrow();
+  }
 });

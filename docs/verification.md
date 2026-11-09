@@ -1,5 +1,15 @@
 # 验证记录
 
+## v0.4.2 Windows 安装与验证（2026-11-09）
+
+- 在 Windows 本机 Paseo 0.15.3 中，Git 安装与本地目录加载均报 `Could not resolve type dependency "@getpaseo/client"`，错误指向 `server/commit-message.ts`。此文件直接从开发依赖导入类型；Paseo 的运行边界检查也解析类型依赖，干净安装目录中没有该包。修正为从宿主提供的 `PluginHandlerContext["paseo"]` 推导类型，不增加安装依赖或准备命令。
+- 使用本机 Paseo 的真实编译器，在不含 `node_modules`、无法解析 `@getpaseo/client` 的临时分发目录中验证：原版稳定复现错误，修正版前后端编译均通过。报告为 `artifacts/clean-install.json`。此问题与干净安装的依赖有关，不能据此认定 Windows 安装都会失败；其他平台的运行验证仍需分别执行。
+- 本地目录插件重载后为 `running`，通过真实 daemon RPC 读取设置、变更、工作区文件、提交历史及历史 diff；离线 Mermaid 资源解压成功，文件管理器能力正确报告为 `win32`。报告为 `artifacts/runtime.json`。
+- 补齐 Windows 开发检查：源码统一 LF，第三方许可证保留原始字节；兼容脚本通过 Node 执行 npm CLI，避免直接启动 `npm.cmd` 的 `spawn EINVAL`；Git 临时仓库使用 Windows 可识别的 `NUL` 并关闭自动换行转换；特殊文件名按文件系统能力取值；Windows 回归限制并发并延长超时。CI 增加 `windows-latest`，与 Ubuntu 一起执行检查和 SDK 兼容验证。
+- SDK 0.12 / 0.13 / 0.14 / 0.15 类型兼容检查在本机全部通过，Node 为 24.14.1，Git 为 2.50.1.windows.1。CI 使用 Node 22；本机运行结果不替代远端 CI 结果。
+- 全量回归与修复后的定向复跑汇总为 125 项通过、2 项因符号链接权限跳过；版本一致性、TypeScript、Biome 和差异空白检查通过。回归日志为 `artifacts/windows-test-run.log`、`artifacts/windows-recheck.log` 与 `artifacts/windows-sync-recheck.log`，最后一份确认独立子模块拉取 / 推送用例在固定临时仓库换行配置后通过。
+- 普通文件的目录边界检查与文件符号链接检查拆分验证。本机创建文件符号链接返回 `EPERM`，因此只跳过两项依赖此权限的用例；普通路径越界、Git 内部路径及文件读取限制仍执行。POSIX 文件模式场景由 Linux 检查覆盖。
+
 ## 全局操作反馈（2026-11-07）
 
 - 使用宿主 `useToast()` 显示带仓库名称的提交、拉取、推送、暂存和取消暂存结果；同仓库两秒内相同结果合并，不在提交区留下成功提示行。错误消息显示简短摘要，仓库内仍保留可复制的完整错误和草稿。生成提交信息成功仍只填入输入框。

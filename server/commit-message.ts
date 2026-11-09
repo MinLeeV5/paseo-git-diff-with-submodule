@@ -1,18 +1,19 @@
 import { lstat, readFile, realpath } from "node:fs/promises";
 import { join } from "node:path";
-import type {
-  PaseoAgentConfig,
-  PaseoApi,
-  PaseoProviderSnapshotResult,
-  PaseoWorkspace,
-  PaseoWorkspaceListOptions,
-  PaseoWorkspaceListResult,
-} from "@getpaseo/client";
+import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { z } from "zod";
 import type { RepositorySnapshot } from "../shared/contracts";
 import { DIFF_OPTIONS, errorMessage, GitError, git } from "./git";
 import { MAX_FILE_BYTES, resolveFile } from "./repositories";
 import { commitChanges } from "./repository-actions";
+
+// Derive host API types from the server SDK so a clean plugin install does not
+// need the development-only @getpaseo/client package in its source directory.
+type PaseoApi = PluginHandlerContext["paseo"];
+type PaseoAgentConfig = Parameters<PaseoApi["agents"]["create"]>[0]["config"];
+type PaseoWorkspaceListOptions = Parameters<PaseoApi["workspaces"]["list"]>[0];
+type PaseoWorkspaceListResult = Awaited<ReturnType<PaseoApi["workspaces"]["list"]>>;
+type PaseoWorkspace = PaseoWorkspaceListResult["entries"][number];
 
 export type CommitMessagePaseo = {
   config: Pick<PaseoApi["config"], "get">;
@@ -22,7 +23,7 @@ export type CommitMessagePaseo = {
     list(options?: PaseoWorkspaceListOptions): Promise<PaseoWorkspaceListResult>;
   };
 };
-type ProviderEntry = PaseoProviderSnapshotResult["entries"][number];
+type ProviderEntry = Awaited<ReturnType<PaseoApi["providers"]["waitForReady"]>>["entries"][number];
 type Model = NonNullable<ProviderEntry["models"]>[number];
 type Candidate = { provider: string; model?: string; thinkingOptionId?: string };
 

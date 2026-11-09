@@ -152,29 +152,32 @@ it("handles an unborn HEAD, staged additions and subsequent working-tree edits",
   expect(patch.hunks[0].lines[0].newLine).toBe(1);
 });
 
-it("reads renames, deletions and exact filenames containing tabs, Unicode, newlines and pathspec syntax", async () => {
+it("reads renames, deletions and exact special filenames supported by the filesystem", async () => {
   const f = await setup();
   const root = await f.repo("root");
+  const literal = process.platform === "win32" ? "[literal].txt" : ":(glob)*.txt";
+  const renamedPath = process.platform === "win32" ? "重命名 file.txt" : "重命名\t file.txt";
+  const addedPath = process.platform === "win32" ? "line break.txt" : "line\nbreak.txt";
   await put(root, "old.txt", "rename me\n");
   await put(root, "deleted.txt", "delete me\n");
-  await put(root, ":(glob)*.txt", "before\n");
+  await put(root, literal, "before\n");
   await commit(root);
-  await command(root, "mv", "old.txt", "重命名\t file.txt");
+  await command(root, "mv", "old.txt", renamedPath);
   await command(root, "rm", "deleted.txt");
-  await put(root, ":(glob)*.txt", "after\n");
-  await put(root, "line\nbreak.txt", "new without final newline");
+  await put(root, literal, "after\n");
+  await put(root, addedPath, "new without final newline");
   const repo = (await scan(root)).repositories[0];
   expect(repo.state).toBe("ready");
   const renamed = repo.files.find((file) => file.oldPath === "old.txt");
   expect(renamed).toMatchObject({
-    path: "重命名\t file.txt",
+    path: renamedPath,
     status: "renamed",
     additions: 0,
     deletions: 0,
   });
   expect((await readFileDiff(repo, "deleted.txt", "head")).hunks[0].lines[0].kind).toBe("removed");
-  expect((await readFileDiff(repo, ":(glob)*.txt", "head")).patch).toContain("+after");
-  const added = await readFileDiff(repo, "line\nbreak.txt", "head");
+  expect((await readFileDiff(repo, literal, "head")).patch).toContain("+after");
+  const added = await readFileDiff(repo, addedPath, "head");
   expect(added.hunks[0].lines).toContainEqual({
     kind: "meta",
     content: "\\ No newline at end of file",

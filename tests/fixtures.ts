@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 const execute = promisify(execFile);
 const environment = {
   ...process.env,
-  GIT_CONFIG_GLOBAL: devNull,
+  GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : devNull,
   GIT_CONFIG_NOSYSTEM: "1",
   GIT_AUTHOR_NAME: "Plugin tests",
   GIT_AUTHOR_EMAIL: "test@example.invalid",
@@ -35,6 +35,7 @@ export async function fixture() {
     await command(path, "init", "-q", "-b", "main");
     await command(path, "config", "user.name", "Plugin tests");
     await command(path, "config", "user.email", "test@example.invalid");
+    await command(path, "config", "core.autocrlf", "false");
     return path;
   }
   return {

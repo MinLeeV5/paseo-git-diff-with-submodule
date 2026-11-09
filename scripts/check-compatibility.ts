@@ -6,6 +6,8 @@ import { promisify } from "node:util";
 
 const execute = promisify(execFile);
 const root = resolve(import.meta.dirname, "..");
+const npmCli = process.env.npm_execpath;
+if (!npmCli) throw new Error("Run this check with npm run check:compatibility");
 const temporary = await mkdtemp(join(tmpdir(), "paseo-sdk-matrix-"));
 const versions = ["0.12.0", "0.13.0", "0.14.0", "0.15.0"];
 const report: { version: string; typecheck: string }[] = [];
@@ -14,8 +16,9 @@ try {
     const destination = join(temporary, version);
     await mkdir(destination);
     const packed = await execute(
-      process.platform === "win32" ? "npm.cmd" : "npm",
+      process.execPath,
       [
+        npmCli,
         "pack",
         `@getpaseo/plugin@${version}`,
         "--ignore-scripts",

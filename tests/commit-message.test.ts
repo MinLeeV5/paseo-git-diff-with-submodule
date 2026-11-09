@@ -451,14 +451,18 @@ describe("Paseo commit messages", () => {
       { paseo: fake.paseo, settings },
     );
     const failure = expect(running).rejects.toThrow();
-    await vi.waitFor(() => expect(fake.run).toHaveBeenCalledOnce());
-    await expect(
-      service.repositoryAction({ directory, repositoryId: ".", action: "stage" }),
-    ).rejects.toThrow("正在执行");
-    service.close();
-    expect(fake.archive).toHaveBeenCalledOnce();
-    release(idle);
-    await failure;
+    try {
+      await vi.waitFor(() => expect(fake.run).toHaveBeenCalledOnce(), { timeout: 15000 });
+      await expect(
+        service.repositoryAction({ directory, repositoryId: ".", action: "stage" }),
+      ).rejects.toThrow("正在执行");
+      service.close();
+      expect(fake.archive).toHaveBeenCalledOnce();
+    } finally {
+      service.close();
+      release(idle);
+      await failure;
+    }
     expect(fake.create).toHaveBeenCalledOnce();
     expect(fake.archive).toHaveBeenCalledOnce();
   });
