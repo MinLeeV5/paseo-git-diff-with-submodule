@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { DiffLine, FileDiff } from "../shared/contracts";
 import { buildDiffRows, type DiffRow, diffChangeTargets } from "./diff-model";
+import { DIFF_OVERVIEW_WIDTH, DiffOverview } from "./diff-overview";
+import { diffChangeRanges, estimateDiffRowHeights } from "./diff-overview-model";
 import { Icon } from "./icons";
 import { diffSyntaxStates, languageForPath } from "./syntax";
 import { SyntaxText } from "./syntax-text";
@@ -22,6 +24,7 @@ export function DiffViewer({
   mode,
   wrap,
   navigation = INITIAL_NAVIGATION,
+  onHunkChange,
   from = "HEAD",
   to = "工作目录",
   syntaxHighlight = true,
@@ -39,6 +42,7 @@ export function DiffViewer({
   mode: DiffLayout;
   wrap: boolean;
   navigation?: { index: number; request: number };
+  onHunkChange?(index: number): void;
   from?: string;
   to?: string;
   syntaxHighlight?: boolean;
@@ -71,6 +75,8 @@ export function DiffViewer({
   const modifiedScroll = useRef<ScrollView>(null);
   const currentRatio = useRef(ratio);
   currentRatio.current = ratio;
+  const currentWidth = useRef(width);
+  currentWidth.current = width;
   useEffect(() => {
     if (Platform.OS !== "web" || mode !== "split" || wrap || diff.state !== "text") return;
     type Wheel = {
@@ -94,7 +100,7 @@ export function DiffViewer({
       if (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
       const bounds = node.getBoundingClientRect();
       const ref =
-        event.clientX < bounds.left + bounds.width * currentRatio.current
+        event.clientX < bounds.left + currentWidth.current * currentRatio.current
           ? originalScroll
           : modifiedScroll;
       const scroll = ref.current?.getScrollableNode() as {
@@ -119,9 +125,31 @@ export function DiffViewer({
     [diff.hunks, mode],
   );
   const targets = useMemo(() => diffChangeTargets(rows), [rows]);
-  const activeTarget = useRef(targets[navigation.index]);
-  activeTarget.current = targets[navigation.index];
+  const ranges = useMemo(() => diffChangeRanges(rows), [rows]);
+  const gutterWidth = useMemo(() => {
+    let lastLine = 0;
+    for (const hunk of diff.hunks)
+      lastLine = Math.max(lastLine, hunk.oldStart + hunk.oldLines, hunk.newStart + hunk.newLines);
+    return Math.max(40, String(lastLine).length * 7 + 14);
+  }, [diff.hunks]);
+  const [selectedRow, setSelectedRow] = useState<{
+    rows: ViewerRow[];
+    request: number;
+    index: number;
+    hunk: number;
+  } | null>(null);
+  useEffect(() => {
+    setSelectedRow((previous) => (previous?.rows === rows ? previous : null));
+  }, [rows]);
+  const selection =
+    selectedRow?.rows === rows && selectedRow.request === navigation.request ? selectedRow : null;
+  const revealRequest = selection ?? navigation;
+  const activeIndex = selection?.index ?? targets[navigation.index];
+  const activeHunk = selection?.hunk ?? navigation.index;
+  const activeTarget = useRef(activeIndex);
+  activeTarget.current = activeIndex;
   const revealRow = useCallback((index: number) => {
+    if (activeTarget.current !== index) return;
     const list = listRef.current;
     const responder = list?.getScrollResponder() as unknown as {
       getInnerViewRef?(): View | null;
@@ -137,18 +165,59 @@ export function DiffViewer({
       );
     else list?.scrollToIndex({ index, animated: false, viewPosition: 0 });
   }, []);
+  const estimatedHeights = useMemo(
+    () =>
+      estimateDiffRowHeights(rows, {
+        wrap,
+        width,
+        fontSize,
+        tabSize,
+        lineNumbers,
+        gutterWidth,
+        splitRatio: mode === "split" ? ratio : null,
+      }),
+    [rows, wrap, width, fontSize, tabSize, lineNumbers, gutterWidth, mode, ratio],
+  );
+  // Only mounted rows are measured; estimates keep the overview useful for
+  // off-screen wrapped lines without defeating FlatList virtualization.
+  const measurementCache = useMemo(
+    () => ({ estimatedHeights, fontFamily, fontWeight, heights: new Map<number, number>() }),
+    [estimatedHeights, fontFamily, fontWeight],
+  );
+  const [measurements, setMeasurements] = useState<{
+    cache: typeof measurementCache;
+    heights: Map<number, number>;
+  } | null>(null);
+  const currentMeasurementCache = useRef(measurementCache);
+  currentMeasurementCache.current = measurementCache;
+  const measureTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(measureTimer.current), []);
+  const recordRowHeight = (index: number, height: number) => {
+    const measuredHeights = measurementCache.heights;
+    if (!wrap || Math.abs((measuredHeights.get(index) ?? estimatedHeights[index]) - height) < 0.5)
+      return;
+    measuredHeights.set(index, height);
+    if (measureTimer.current) return;
+    measureTimer.current = setTimeout(() => {
+      measureTimer.current = undefined;
+      const cache = currentMeasurementCache.current;
+      setMeasurements({ cache, heights: new Map(cache.heights) });
+    }, 0);
+  };
   const layout = useMemo(() => {
     let offset = 0;
     const hunks: number[] = [];
     const sizes = rows.map((row, index) => {
       if ("header" in row) hunks.push(index);
-      const length = "header" in row ? HUNK_HEIGHT : LINE_HEIGHT + fontSize - 12;
+      const length =
+        (measurements?.cache === measurementCache ? measurements.heights.get(index) : undefined) ??
+        estimatedHeights[index];
       const result = { index, length, offset };
       offset += length;
       return result;
     });
     return { sizes, hunks };
-  }, [rows, fontSize]);
+  }, [rows, estimatedHeights, measurementCache, measurements]);
   const { longest, columns } = useMemo(() => {
     let longest = 30;
     let columns = 30;
@@ -167,12 +236,14 @@ export function DiffViewer({
   }, [diff.hunks, tabSize]);
   const effectiveWrap = wrap;
   const contentWidth =
-    effectiveWrap || mode === "split" ? width : Math.max(width, columns * fontSize * 0.65 + 106);
+    effectiveWrap || mode === "split"
+      ? width
+      : Math.max(width, columns * fontSize * 0.65 + (lineNumbers ? gutterWidth * 2 : 0) + 26);
   const textWidth = columns * fontSize * 0.65 + 18;
   useEffect(() => {
     if (!listReady) return;
     retries.current = 0;
-    const index = targets[navigation.index];
+    const index = "rows" in revealRequest ? revealRequest.index : targets[revealRequest.index];
     pendingTarget.current = index;
     if (index !== undefined) {
       const reveal = () => revealRow(index);
@@ -183,7 +254,7 @@ export function DiffViewer({
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };
-  }, [navigation, targets, listReady, effectiveWrap, revealRow]);
+  }, [revealRequest, targets, listReady, effectiveWrap, revealRow]);
 
   function background(line: DiffLine | null, gutter = false) {
     return line?.kind === "added"
@@ -205,7 +276,7 @@ export function DiffViewer({
   function splitCell(line: DiffLine | null, right: boolean) {
     const codeWidth = Math.max(
       textWidth,
-      width * (right ? 1 - ratio : ratio) - (lineNumbers ? 58 : 18),
+      width * (right ? 1 - ratio : ratio) - (lineNumbers ? gutterWidth : 0) - 18,
     );
     return (
       <View
@@ -215,7 +286,11 @@ export function DiffViewer({
         ]}
       >
         {lineNumbers ? (
-          <Text selectable style={[styles.gutter, { backgroundColor: background(line, true) }]}>
+          <Text
+            selectable
+            numberOfLines={1}
+            style={[styles.gutter, { width: gutterWidth, backgroundColor: background(line, true) }]}
+          >
             {line ? (right ? line.newLine : line.oldLine) : ""}
           </Text>
         ) : null}
@@ -259,9 +334,11 @@ export function DiffViewer({
     if ("header" in item)
       return (
         <View
+          testID={`diff-row-${index}`}
           ref={index === activeTarget.current ? targetRow : undefined}
           collapsable={index !== activeTarget.current}
-          style={[styles.hunk, index === layout.hunks[navigation.index] && styles.activeHunk]}
+          onLayout={(event) => recordRowHeight(index, event.nativeEvent.layout.height)}
+          style={[styles.hunk, index === layout.hunks[activeHunk] && styles.activeHunk]}
         >
           <Icon name="code" color={colors.foregroundMuted} size={12} />
           <Text selectable numberOfLines={1} style={styles.hunkText}>
@@ -272,8 +349,10 @@ export function DiffViewer({
     if (mode === "split")
       return (
         <View
+          testID={`diff-row-${index}`}
           ref={index === activeTarget.current ? targetRow : undefined}
           collapsable={index !== activeTarget.current}
+          onLayout={(event) => recordRowHeight(index, event.nativeEvent.layout.height)}
           style={styles.line}
         >
           {splitCell(item.left, false)}
@@ -284,17 +363,27 @@ export function DiffViewer({
     if (!line) return null;
     return (
       <View
+        testID={`diff-row-${index}`}
         ref={index === activeTarget.current ? targetRow : undefined}
         collapsable={index !== activeTarget.current}
+        onLayout={(event) => recordRowHeight(index, event.nativeEvent.layout.height)}
         style={[styles.line, { backgroundColor: background(line) }]}
       >
         {lineNumbers ? (
-          <Text selectable style={[styles.gutter, { backgroundColor: background(line, true) }]}>
+          <Text
+            selectable
+            numberOfLines={1}
+            style={[styles.gutter, { width: gutterWidth, backgroundColor: background(line, true) }]}
+          >
             {line.oldLine}
           </Text>
         ) : null}
         {lineNumbers ? (
-          <Text selectable style={[styles.gutter, { backgroundColor: background(line, true) }]}>
+          <Text
+            selectable
+            numberOfLines={1}
+            style={[styles.gutter, { width: gutterWidth, backgroundColor: background(line, true) }]}
+          >
             {line.newLine}
           </Text>
         ) : null}
@@ -360,7 +449,7 @@ export function DiffViewer({
       renderItem={renderRow}
       keyExtractor={(row) => row.key}
       initialNumToRender={40}
-      initialScrollIndex={!effectiveWrap ? targets[navigation.index] : undefined}
+      initialScrollIndex={!effectiveWrap ? activeIndex : undefined}
       maxToRenderPerBatch={32}
       windowSize={7}
       getItemLayout={!effectiveWrap ? (_, index) => layout.sizes[index] : undefined}
@@ -377,7 +466,10 @@ export function DiffViewer({
       }}
       onScrollToIndexFailed={({ index, averageItemLength }) => {
         pendingTarget.current = index;
-        listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+        listRef.current?.scrollToOffset({
+          offset: layout.sizes[index]?.offset ?? averageItemLength * index,
+          animated: false,
+        });
         if (retryTimer.current) clearTimeout(retryTimer.current);
         if (retries.current < 50) {
           retries.current++;
@@ -392,10 +484,11 @@ export function DiffViewer({
       ref={rootRef}
       {...(Platform.OS === "web" ? { dataSet: { gitCode: "true", pmono: "true" } } : {})}
       style={styles.root}
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       {mode === "split" ? (
-        <View style={styles.columnHeaders}>
+        <View
+          style={[styles.columnHeaders, ranges.length > 0 && { paddingRight: DIFF_OVERVIEW_WIDTH }]}
+        >
           <View style={[styles.columnHeading, { width: `${ratio * 100}%` }]}>
             <Text style={styles.columnLabel}>原始 · {from}</Text>
           </View>
@@ -412,15 +505,41 @@ export function DiffViewer({
           </Text>
         </View>
       ) : null}
-      {effectiveWrap || mode === "split" ? (
-        list
-      ) : (
-        <ScrollView horizontal style={styles.root} contentContainerStyle={styles.horizontal}>
-          {list}
-        </ScrollView>
-      )}
+      <View style={{ flex: 1, minHeight: 0, flexDirection: "row" }}>
+        <View style={styles.root} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+          {effectiveWrap || mode === "split" ? (
+            list
+          ) : (
+            <ScrollView horizontal style={styles.root} contentContainerStyle={styles.horizontal}>
+              {list}
+            </ScrollView>
+          )}
+        </View>
+        {ranges.length > 0 ? (
+          <DiffOverview
+            ranges={ranges}
+            sizes={layout.sizes}
+            theme={theme}
+            onSelect={(range) => {
+              setSelectedRow({
+                rows,
+                request: navigation.request,
+                index: range.start,
+                hunk: range.hunk,
+              });
+              onHunkChange?.(range.hunk);
+            }}
+          />
+        ) : null}
+      </View>
       {mode === "split" && !effectiveWrap ? (
-        <View style={{ flexDirection: "row", height: 12 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            height: 12,
+            marginRight: ranges.length > 0 ? DIFF_OVERVIEW_WIDTH : 0,
+          }}
+        >
           {[ratio, 1 - ratio].map((fraction, side) => (
             <ScrollView
               ref={side === 0 ? originalScroll : modifiedScroll}
@@ -441,7 +560,10 @@ export function DiffViewer({
             >
               <View
                 style={{
-                  width: Math.max(width * fraction, textWidth + (lineNumbers ? 58 : 18)),
+                  width: Math.max(
+                    width * fraction,
+                    textWidth + (lineNumbers ? gutterWidth : 0) + 18,
+                  ),
                   height: 1,
                 }}
               />
