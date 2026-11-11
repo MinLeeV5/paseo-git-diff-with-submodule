@@ -1,15 +1,15 @@
 {
-  "name": "paseo-git-diff-with-submodule",
+  "name": "paseo-gitlens",
   "version": "0.6.0",
   "private": true,
   "description": "Supercharge Git in Your Paseo",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MinLeeV5/paseo-git-diff-with-submodule.git"
+    "url": "git+https://github.com/MinLeeV5/GitLens.git"
   },
-  "homepage": "https://github.com/MinLeeV5/paseo-git-diff-with-submodule#readme",
+  "homepage": "https://github.com/MinLeeV5/GitLens#readme",
   "bugs": {
-    "url": "https://github.com/MinLeeV5/paseo-git-diff-with-submodule/issues"
+    "url": "https://github.com/MinLeeV5/GitLens/issues"
   },
   "type": "module",
   "engines": {
