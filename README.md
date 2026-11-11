@@ -15,7 +15,7 @@ Review Git changes, commit graphs, and historical diffs across a workspace and i
 要求 Paseo daemon 和客户端均为 0.12.0 或更高版本，daemon 机器已安装 Git。
 
 ```bash
-paseo plugin install https://github.com/MinLeeV5/GitLens --ref v0.6.0
+paseo plugin install https://github.com/MinLeeV5/paseo-gitlens --ref main
 ```
 
 在目标 daemon 的 Settings → Plugins 中开启插件功能。进入任意 Git 工作区，打开 Command Center（⌘K / Ctrl+K），选择 **GitLens · 包含 Submodule**；也可以从工作区或 Explorer 添加 GitLens 面板。首次通过 Command Center 打开后，工作区顶部会出现「打开」按钮。
@@ -23,14 +23,14 @@ paseo plugin install https://github.com/MinLeeV5/GitLens --ref v0.6.0
 从源码开发时运行：
 
 ```bash
-git clone https://github.com/MinLeeV5/GitLens.git
-cd GitLens
+git clone https://github.com/MinLeeV5/paseo-gitlens.git
+cd paseo-gitlens
 npm ci
 npm run check
 paseo plugin install "$PWD"
 ```
 
-修改插件代码后运行 `npm run check` 和 `paseo plugin reload git-diff-with-submodule`。普通 Git 安装直接使用已生成的离线资源，不需要安装开发依赖。
+修改插件代码后运行 `npm run check` 和 `paseo plugin reload paseo-gitlens`。普通 Git 安装直接使用已生成的离线资源，不需要安装开发依赖。
 
 Windows PowerShell 也支持上述安装方式。若 `paseo` 未加入 PATH，可直接调用 Paseo 安装目录中的 `resources\bin\paseo.cmd`，例如：
 

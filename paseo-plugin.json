@@ -1,5 +1,5 @@
 {
-  "id": "git-diff-with-submodule",
+  "id": "paseo-gitlens",
   "name": "GitLens",
   "description": "Supercharge Git in Your Paseo",
   "icon": "assets/icon.png",

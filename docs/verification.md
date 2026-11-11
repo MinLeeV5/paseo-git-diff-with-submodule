@@ -233,7 +233,7 @@ Paseo 构建器不允许运行模块导入根目录 `package.json`，因此版�
 
 ## 安装与真实仓库
 
-新版执行 `paseo plugin reload git-diff-with-submodule` 后为 running。
+本次迁移将插件 ID 从 `git-diff-with-submodule` 退役并改为 `paseo-gitlens`；现行版本执行 `paseo plugin reload paseo-gitlens` 后为 running。
 
 `verify:installed` 使用 0.12.0 DaemonClient 调用已安装插件的真实 RPC。设置整理后于 23:05（北京时间）重新加载并验证，主仓 123 文件、Client 子仓 47、Web 0，三仓均 ready。有变更仓库均可读取差异与全文；host settings 为 ready，既有偏好保留，Finder 能力为 darwin/可用。Mermaid 12.3.0 离线引擎通过真实 RPC 传输 2123624 字节 base64 压缩数据，解压为 5537838 字节。报告：本地 `artifacts/runtime.json`。业务项目由其他任务持续编辑，文件数量会变化，本任务没有修改业务仓库。
 

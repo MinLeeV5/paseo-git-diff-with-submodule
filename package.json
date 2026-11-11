@@ -5,11 +5,11 @@
   "description": "Supercharge Git in Your Paseo",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MinLeeV5/GitLens.git"
+    "url": "git+https://github.com/MinLeeV5/paseo-gitlens.git"
   },
-  "homepage": "https://github.com/MinLeeV5/GitLens#readme",
+  "homepage": "https://github.com/MinLeeV5/paseo-gitlens#readme",
   "bugs": {
-    "url": "https://github.com/MinLeeV5/GitLens/issues"
+    "url": "https://github.com/MinLeeV5/paseo-gitlens/issues"
   },
   "type": "module",
   "engines": {

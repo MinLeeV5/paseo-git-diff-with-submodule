@@ -33,22 +33,22 @@ const client = new DaemonClient({
 try {
   await client.connect();
   const stored = (await client.invokePluginRpc(
-    "git-diff-with-submodule",
+    "paseo-gitlens",
     settingsRpc("git-panel").read.name,
     {},
   )) as { status: string; values?: unknown };
   assert.equal(stored.status, "ready");
   const settings = panelSettingsSchema.parse(stored.values);
   const capabilities = fileCapabilitiesRpc.output.parse(
-    await client.invokePluginRpc("git-diff-with-submodule", fileCapabilitiesRpc.name, {}),
+    await client.invokePluginRpc("paseo-gitlens", fileCapabilitiesRpc.name, {}),
   );
   const renderer = mermaidRuntimeRpc.output.parse(
-    await client.invokePluginRpc("git-diff-with-submodule", mermaidRuntimeRpc.name, {}),
+    await client.invokePluginRpc("paseo-gitlens", mermaidRuntimeRpc.name, {}),
   );
   const rendererBytes = gunzipSync(Buffer.from(renderer.gzip, "base64"));
   assert(rendererBytes.length > 1000000);
   const snapshot = changesRpc.output.parse(
-    await client.invokePluginRpc("git-diff-with-submodule", changesRpc.name, {
+    await client.invokePluginRpc("paseo-gitlens", changesRpc.name, {
       directory,
       comparison: "head",
     }),
@@ -59,7 +59,7 @@ try {
     const history =
       repository.state === "ready"
         ? historyRpc.output.parse(
-            await client.invokePluginRpc("git-diff-with-submodule", historyRpc.name, {
+            await client.invokePluginRpc("paseo-gitlens", historyRpc.name, {
               directory,
               repositoryId: repository.id,
             }),
@@ -68,7 +68,7 @@ try {
     const latest = history?.commits[0];
     const details = latest
       ? commitRpc.output.parse(
-          await client.invokePluginRpc("git-diff-with-submodule", commitRpc.name, {
+          await client.invokePluginRpc("paseo-gitlens", commitRpc.name, {
             directory,
             repositoryId: repository.id,
             oid: latest.oid,
@@ -79,7 +79,7 @@ try {
     const historicalDiff =
       details && historicalFile
         ? commitFileDiffRpc.output.parse(
-            await client.invokePluginRpc("git-diff-with-submodule", commitFileDiffRpc.name, {
+            await client.invokePluginRpc("paseo-gitlens", commitFileDiffRpc.name, {
               directory,
               repositoryId: repository.id,
               oid: details.oid,
@@ -92,7 +92,7 @@ try {
     const file = repository.files[0];
     const diff = file
       ? fileDiffRpc.output.parse(
-          await client.invokePluginRpc("git-diff-with-submodule", fileDiffRpc.name, {
+          await client.invokePluginRpc("paseo-gitlens", fileDiffRpc.name, {
             directory,
             repositoryId: repository.id,
             path: file.path,
@@ -104,7 +104,7 @@ try {
       : null;
     const content = file
       ? fileContentRpc.output.parse(
-          await client.invokePluginRpc("git-diff-with-submodule", fileContentRpc.name, {
+          await client.invokePluginRpc("paseo-gitlens", fileContentRpc.name, {
             directory,
             repositoryId: repository.id,
             path: file.path,
@@ -138,13 +138,13 @@ try {
   if (previewPath) {
     const source = { directory, repositoryId: ".", path: previewPath };
     const self = resolveLinkRpc.output.parse(
-      await client.invokePluginRpc("git-diff-with-submodule", resolveLinkRpc.name, {
+      await client.invokePluginRpc("paseo-gitlens", resolveLinkRpc.name, {
         ...source,
         href: `./${encodeURIComponent(previewPath.split("/").at(-1) ?? "")}`,
       }),
     );
     const content = fileContentRpc.output.parse(
-      await client.invokePluginRpc("git-diff-with-submodule", fileContentRpc.name, {
+      await client.invokePluginRpc("paseo-gitlens", fileContentRpc.name, {
         directory,
         repositoryId: self.repositoryId,
         path: self.path,
@@ -157,7 +157,7 @@ try {
     const href = /\]\(([^)\n]+)\)/.exec(content.content)?.[1];
     if (href) {
       const target = resolveLinkRpc.output.parse(
-        await client.invokePluginRpc("git-diff-with-submodule", resolveLinkRpc.name, {
+        await client.invokePluginRpc("paseo-gitlens", resolveLinkRpc.name, {
           ...source,
           href,
         }),
