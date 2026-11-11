@@ -41,6 +41,7 @@
     "dev:ui": "vite --config tests/browser/vite.config.ts",
     "verify:installed": "tsx scripts/verify-installed.ts",
     "benchmark": "tsx scripts/benchmark.ts",
+    "benchmark:regression": "node --import tsx scripts/benchmark-regression.ts",
     "build:assets": "tsx scripts/build-assets.ts"
   },
   "devDependencies": {

@@ -11,14 +11,22 @@ import { mermaidRuntime } from "../../server/generated/mermaid";
 import { GitChangesService } from "../../server/service";
 import {
   changesRpc,
+  changesViewRpc,
+  compactFileDiff,
   fileCapabilitiesRpc,
   fileContentRpc,
   fileDiffRpc,
+  fileDiffViewRpc,
   mermaidRuntimeRpc,
   resolveLinkRpc,
   revealFileRpc,
 } from "../../shared/contracts";
-import { commitFileDiffRpc, commitRpc, historyRpc } from "../../shared/history-contracts";
+import {
+  commitFileDiffRpc,
+  commitFileDiffViewRpc,
+  commitRpc,
+  historyRpc,
+} from "../../shared/history-contracts";
 import { generateCommitMessageRpc, repositoryActionRpc } from "../../shared/repository-contracts";
 import { defaultSettings, panelSettingsSchema } from "../../shared/settings";
 
@@ -48,7 +56,9 @@ const daemon =
 if (daemon) await daemon.connect();
 const paseo = daemon ? createPaseoApi(daemon) : undefined;
 const settingsContracts = settingsRpc("git-panel");
-const settingsPath = resolve(import.meta.dirname, "../../artifacts/preview-settings.json");
+const settingsPath = process.env.PASEO_DIFF_ACCEPTANCE_SETTINGS_PATH
+  ? resolve(process.env.PASEO_DIFF_ACCEPTANCE_SETTINGS_PATH)
+  : resolve(import.meta.dirname, "../../artifacts/preview-settings.json");
 let stored = { revision: "0", values: defaultSettings };
 try {
   const data = JSON.parse(await readFile(settingsPath, "utf8"));
@@ -132,6 +142,13 @@ export default defineConfig({
               response.end(JSON.stringify({ data: mermaidRuntime }));
               return;
             }
+            if (input.name === changesViewRpc.name) {
+              const args = changesViewRpc.input.parse(input.input);
+              if (resolve(args.directory) !== resolve(directory))
+                throw new Error("Unexpected acceptance directory");
+              response.end(JSON.stringify({ data: await service.snapshotView(args) }));
+              return;
+            }
             if (input.name === changesRpc.name) {
               const args = changesRpc.input.parse(input.input);
               if (resolve(args.directory) !== resolve(directory))
@@ -167,6 +184,13 @@ export default defineConfig({
                 commitFileDiffRpc,
                 (args: unknown) => service.commitDiff(commitFileDiffRpc.input.parse(args)),
               ],
+              [
+                commitFileDiffViewRpc,
+                async (args: unknown) =>
+                  compactFileDiff(
+                    await service.commitDiff(commitFileDiffViewRpc.input.parse(args)),
+                  ),
+              ],
             ] as const) {
               if (input.name !== contract.name) continue;
               const args = contract.input.parse(input.input);
@@ -181,6 +205,8 @@ export default defineConfig({
             let data: unknown;
             if (input.name === fileDiffRpc.name)
               data = await service.diff(fileDiffRpc.input.parse(input.input));
+            else if (input.name === fileDiffViewRpc.name)
+              data = compactFileDiff(await service.diff(fileDiffViewRpc.input.parse(input.input)));
             else if (input.name === fileContentRpc.name) data = await service.content(args);
             else if (input.name === revealFileRpc.name) data = await service.reveal(args);
             else throw new Error("Unknown RPC");

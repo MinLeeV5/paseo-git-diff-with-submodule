@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileDiff } from "../shared/contracts";
 import {
   type CommitDetails,
-  commitFileDiffRpc,
+  commitFileDiffViewRpc,
   commitRpc,
   type GitHistory,
   historyRpc,
@@ -140,7 +140,7 @@ export function useCommitDiff(
   context: number,
   ignoreWhitespace: boolean,
 ) {
-  const call = useRpc(commitFileDiffRpc);
+  const call = useRpc(commitFileDiffViewRpc);
   const read = useCallback(
     () => call({ directory, repositoryId, oid, path, context, ignoreWhitespace }),
     [call, directory, repositoryId, oid, path, context, ignoreWhitespace],

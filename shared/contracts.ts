@@ -53,6 +53,7 @@ export const snapshotSchema = z.object({
   repositories: z.array(repositorySchema),
   version: z.string(),
   scannedAt: z.string(),
+  pending: z.boolean().optional(),
 });
 export type ChangesSnapshot = z.infer<typeof snapshotSchema>;
 
@@ -62,9 +63,21 @@ export const changesRpc = defineRpc({
     directory: z.string().min(1),
     comparison: comparisonSchema.default("head"),
     force: z.boolean().default(false),
+    progressive: z.boolean().optional(),
+    background: z.boolean().optional(),
   }),
   output: snapshotSchema,
 });
+
+export const changesViewRpc = defineRpc({
+  name: "git.changes-view",
+  input: changesRpc.input.extend({ known: z.record(z.string(), z.string()).optional() }),
+  output: snapshotSchema.extend({
+    repositoryIds: z.array(z.string()),
+    repositoryVersions: z.record(z.string(), z.string()),
+  }),
+});
+export type ChangesView = z.infer<typeof changesViewRpc.output>;
 
 export const diffLineSchema = z.object({
   kind: z.enum(["context", "added", "removed", "meta"]),
@@ -101,6 +114,17 @@ export const fileDiffRpc = defineRpc({
     context: z.number().int().min(0).max(1000000).default(3),
     ignoreWhitespace: z.boolean().default(false),
   }),
+  output: fileDiffSchema,
+});
+
+// Keep the original RPC intact for cached/older clients. Text views consume hunks;
+// non-text results still need the original patch for mode/rename metadata.
+export function compactFileDiff(diff: FileDiff): FileDiff {
+  return diff.state === "text" ? { ...diff, patch: "" } : diff;
+}
+export const fileDiffViewRpc = defineRpc({
+  name: "git.file-diff-view",
+  input: fileDiffRpc.input,
   output: fileDiffSchema,
 });
 

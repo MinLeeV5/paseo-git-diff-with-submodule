@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-11-11T16:45:29.980822+00:00",
+  "environment": {
+    "ui": "Actual React Native Web panel with GitChangesService",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "fixture": "Temporary root repository and two nested initialized submodules",
+    "automaticRefresh": false
+  },
+  "assertions": {
+    "initial": {
+      "hidden": true,
+      "pending": true,
+      "requests": 4
+    },
+    "pendingAfterResume": false,
+    "sameFileList": true,
+    "requestsAfterComplete": 7,
+    "requestsAfterIdle": 7,
+    "repositories": true,
+    "automaticPaused": true,
+    "manualRefreshClearsPending": true,
+    "manualRefreshKeepsList": true
+  },
+  "postMeasurement": {
+    "measuredSourceHash": "fc953420280087212f4a628b24ed2446bf81e0ca6e1b586aa167e7686466ec50",
+    "backendFilesUnchanged": {
+      "index.server.ts": "e524debd6924252bdbad592c67b00aafbf05ccdb1604709d81cc60d97871f93d",
+      "server/commit-message-jobs.ts": "16a4f40799504588872939a4fdbde7d802b37a031d8a9efe1e644962ff457222",
+      "server/commit-message.ts": "5c19348d51a46b2288e5bed18ddad95f0b2944ffda5f6a67acfc0996c5abd37a",
+      "server/concurrency.ts": "81d81dafec7e6021f2efce5ee271a15f691f4a75aad45c58a32cc731742ec23c",
+      "server/diff.ts": "8a10c6033c1c2cbced506da04d25bab0a2ddcdc59be636238f978eccd9217a93",
+      "server/files.ts": "0175f9a46776788e1f5f1c35b26d118507dbb82235041ad77ab094eb3f20e5f7",
+      "server/generated/mermaid.ts": "ff1e51d490b6a358f6b7a05d9cfad0f08140a64a83ceb1ab4ab763ceef20cd2f",
+      "server/git.ts": "45ca946f6b9aa9bb2400f80d3b7cd0e2fcdac59726b8b3c53bb5032a1d56b320",
+      "server/history.ts": "427c11a1295920e68055335a7f01d8db5b7c90625c8c5a94a8512023415ad040",
+      "server/parsers.ts": "8ce808d782e31574ed15608664f683f385fd616e10aef959abb83728cd44f72c",
+      "server/repositories.ts": "54c010dc89004ee9b6d3e52b0380b66be1ad57a1be2fa0e7f13aa08502bf015e",
+      "server/repository-actions.ts": "e1921ae9ac93f5fd5fa882ff3872f2b2ad24985a6f8e3ad1af7de88c84a7896c",
+      "server/repository-store.ts": "419a563110e267726dd83f81e056db7fc06beb725a3724e1ec4fe3ad5f6925b9",
+      "server/service.ts": "b8bcf22121d39307819b037e0ae5f891a179ece53349877083614c65148862f2",
+      "shared/changes-view.ts": "4532bb45c2664c4d681677c477edd7ed8523cc5812084077f350e2f6f332f212",
+      "shared/contracts.ts": "bfe66d43f37bbc6eeaf7f1155d210d237a2855a178cfb5f80bc8caf4a0f6e980",
+      "shared/diff-cache.ts": "533688cf1e3241c65281537a200f8c7d3b596414a5f5355de6a277d83a19881a",
+      "shared/history-contracts.ts": "bb89def3c3bd3afd3251d50245eeaa5db44d84b6e6f8a3c776b7fccbbdc47aef",
+      "shared/preview-links.ts": "e54c5abc8d4d3b7cc92de6c29807dd4a9204175d8dc4b241d4b03ab5b648295b",
+      "shared/repository-contracts.ts": "b63ca9f46edaabd0a7da06a87c9ae630aae791de031aaebd025724a07304c1cd",
+      "shared/settings.ts": "1f3de56b755eb0682a9ef7435519d5fcd2afeaa96558835ce6c7365ce4a61729",
+      "shared/tab-cache.ts": "c8674b4691392993ee9624706237f0a9f88e3a41a512db52f861d800333067c2",
+      "shared/version.ts": "aaa93c747196491c96df651b29be1eaf5472191622cb119f42d1d5621de15791"
+    },
+    "change": "Resume incomplete one-shot scans on foreground; update pending without rebuilding repository arrays"
+  }
+}

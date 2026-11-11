@@ -1,7 +1,19 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { execCommand } from "@getpaseo/plugin/server";
-import { TaskPool } from "./concurrency";
+import { TaskPool, type TaskPriority } from "./concurrency";
 
 const processes = new TaskPool(6);
+export interface GitReadContext {
+  priority: TaskPriority;
+  signal?: AbortSignal;
+}
+const contexts = new AsyncLocalStorage<GitReadContext>();
+export function withGitPriority<T>(context: GitReadContext, work: () => T): T {
+  return contexts.run(context, work);
+}
+export function currentGitPriority(): TaskPriority {
+  return contexts.getStore()?.priority ?? "normal";
+}
 
 export class GitError extends Error {
   constructor(
@@ -41,15 +53,19 @@ export async function git(
   } = {},
 ): Promise<string> {
   try {
-    const result = await processes.run(() =>
-      execCommand("git", ["--no-pager", "--literal-pathspecs", ...args], {
-        cwd: directory,
-        env: environment,
-        shell: false,
-        timeout: options.timeout ?? 15000,
-        maxBuffer: options.maxBuffer ?? 8 * 1024 * 1024,
-        encoding: options.encoding,
-      }),
+    const context = contexts.getStore();
+    const result = await processes.run(
+      () =>
+        execCommand("git", ["--no-pager", "--literal-pathspecs", ...args], {
+          cwd: directory,
+          env: environment,
+          shell: false,
+          timeout: options.timeout ?? 15000,
+          maxBuffer: options.maxBuffer ?? 8 * 1024 * 1024,
+          encoding: options.encoding,
+          signal: context?.signal,
+        }),
+      { priority: () => context?.priority ?? "normal", signal: context?.signal },
     );
     return result.stdout;
   } catch (error) {

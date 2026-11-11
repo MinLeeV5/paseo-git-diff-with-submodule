@@ -72,7 +72,7 @@ export function TabEditor({
           ignoreWhitespace: settings.ignoreWhitespace,
         },
   );
-  const view = JSON.stringify([version, comparison, settings.context, settings.ignoreWhitespace]);
+  const view = JSON.stringify([comparison, settings.context, settings.ignoreWhitespace]);
   useEffect(() => {
     if (!preview && patch.data)
       // Reserve room for derived rows, syntax state and mounted visible lines too.
@@ -101,7 +101,7 @@ export function TabEditor({
         onCost={previewCost}
       />
     );
-  if (patch.error)
+  if (patch.error && !patch.data)
     return (
       <View
         accessibilityRole="alert"
@@ -122,26 +122,74 @@ export function TabEditor({
     );
   if (patch.data)
     return (
-      <DiffViewer
-        key={comparison}
-        diff={patch.data}
-        theme={theme}
-        mode={mode}
-        wrap={settings.wrap}
-        syntaxHighlight={settings.syntaxHighlight}
-        fontSize={settings.fontSize}
-        fontFamily={codeFont(settings)}
-        fontWeight={settings.fontWeight}
-        splitRatio={settings.splitRatio}
-        onSplitRatioChange={onSplitRatioChange}
-        onSplitRatioCommit={onSplitRatioCommit}
-        tabSize={settings.tabSize}
-        lineNumbers={settings.lineNumbers}
-        navigation={navigation}
-        onHunkChange={onHunkChange}
-        from={from}
-        to={to}
-      />
+      <View style={{ flex: 1, minHeight: 0 }}>
+        <DiffViewer
+          key={JSON.stringify([comparison, settings.context, settings.ignoreWhitespace])}
+          diff={patch.data}
+          preserveScrollOnRefresh
+          theme={theme}
+          mode={mode}
+          wrap={settings.wrap}
+          syntaxHighlight={settings.syntaxHighlight}
+          fontSize={settings.fontSize}
+          fontFamily={codeFont(settings)}
+          fontWeight={settings.fontWeight}
+          splitRatio={settings.splitRatio}
+          onSplitRatioChange={onSplitRatioChange}
+          onSplitRatioCommit={onSplitRatioCommit}
+          tabSize={settings.tabSize}
+          lineNumbers={settings.lineNumbers}
+          navigation={navigation}
+          onHunkChange={onHunkChange}
+          from={from}
+          to={to}
+        />
+        {patch.refreshing ? (
+          <View
+            testID="git-diff-refreshing"
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 12,
+              flexDirection: "row",
+              gap: 6,
+              padding: 6,
+              backgroundColor: c.surface1,
+            }}
+          >
+            <ActivityIndicator size="small" color={c.accent} />
+            <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>正在更新差异…</Text>
+          </View>
+        ) : null}
+        {patch.error ? (
+          <View
+            accessibilityRole="alert"
+            style={{
+              position: "absolute",
+              bottom: 8,
+              left: 8,
+              right: 8,
+              padding: 8,
+              backgroundColor: c.surface1,
+              flexDirection: "row",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <Text selectable style={{ flex: 1, color: c.statusDanger, fontSize: 12 }}>
+              {patch.error}
+            </Text>
+            <ToolButton
+              theme={theme}
+              label="重试更新差异"
+              text="重试"
+              icon="refresh"
+              onPress={patch.retry}
+            />
+          </View>
+        ) : null}
+      </View>
     );
   return (
     <View style={{ flex: 1, padding: 24, gap: 12, alignItems: "center", justifyContent: "center" }}>

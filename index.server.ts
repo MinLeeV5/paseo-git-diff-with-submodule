@@ -5,14 +5,22 @@ import { mermaidRuntime } from "./server/generated/mermaid";
 import { GitChangesService } from "./server/service";
 import {
   changesRpc,
+  changesViewRpc,
+  compactFileDiff,
   fileCapabilitiesRpc,
   fileContentRpc,
   fileDiffRpc,
+  fileDiffViewRpc,
   mermaidRuntimeRpc,
   resolveLinkRpc,
   revealFileRpc,
 } from "./shared/contracts";
-import { commitFileDiffRpc, commitRpc, historyRpc } from "./shared/history-contracts";
+import {
+  commitFileDiffRpc,
+  commitFileDiffViewRpc,
+  commitRpc,
+  historyRpc,
+} from "./shared/history-contracts";
 import { generateCommitMessageRpc, repositoryActionRpc } from "./shared/repository-contracts";
 import { panelSettings, panelSettingsSchema } from "./shared/settings";
 
@@ -21,6 +29,7 @@ export default function contribute(server: PluginServerContext) {
   const generations = new CommitMessageJobs();
   const settings = server.registerSettings(panelSettings);
   server.handle(changesRpc, (input) => service.snapshot(input));
+  server.handle(changesViewRpc, (input) => service.snapshotView(input));
   server.handle(repositoryActionRpc, (input) => service.repositoryAction(input));
   server.handle(generateCommitMessageRpc, async (input, { paseo }) => {
     const stored = await settings.read();
@@ -35,7 +44,11 @@ export default function contribute(server: PluginServerContext) {
   server.handle(historyRpc, (input) => service.history(input));
   server.handle(commitRpc, (input) => service.commit(input));
   server.handle(commitFileDiffRpc, (input) => service.commitDiff(input));
+  server.handle(commitFileDiffViewRpc, async (input) =>
+    compactFileDiff(await service.commitDiff(input)),
+  );
   server.handle(fileDiffRpc, (input) => service.diff(input));
+  server.handle(fileDiffViewRpc, async (input) => compactFileDiff(await service.diff(input)));
   server.handle(fileContentRpc, (input) => service.content(input));
   server.handle(fileCapabilitiesRpc, () => fileCapabilities());
   server.handle(revealFileRpc, (input) => service.reveal(input));

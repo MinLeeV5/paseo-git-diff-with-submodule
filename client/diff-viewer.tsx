@@ -36,6 +36,7 @@ export function DiffViewer({
   onSplitRatioCommit,
   tabSize = 4,
   lineNumbers = true,
+  preserveScrollOnRefresh = false,
 }: {
   diff: FileDiff;
   theme: PluginTheme;
@@ -54,6 +55,7 @@ export function DiffViewer({
   onSplitRatioCommit?(): void;
   tabSize?: number;
   lineNumbers?: boolean;
+  preserveScrollOnRefresh?: boolean;
 }) {
   const styles = useMemo(
     () => makeStyles(theme, fontSize, fontFamily, fontWeight),
@@ -240,8 +242,28 @@ export function DiffViewer({
       ? width
       : Math.max(width, columns * fontSize * 0.65 + (lineNumbers ? gutterWidth * 2 : 0) + 26);
   const textWidth = columns * fontSize * 0.65 + 18;
+  const lastReveal = useRef<{
+    diff: FileDiff;
+    request: number;
+    mode: DiffLayout;
+    wrap: boolean;
+  } | null>(null);
   useEffect(() => {
     if (!listReady) return;
+    const previous = lastReveal.current;
+    lastReveal.current = { diff, request: navigation.request, mode, wrap: effectiveWrap };
+    if (
+      preserveScrollOnRefresh &&
+      previous &&
+      previous.diff !== diff &&
+      previous.diff.path === diff.path &&
+      previous.request === navigation.request &&
+      previous.mode === mode &&
+      previous.wrap === effectiveWrap
+    ) {
+      pendingTarget.current = undefined;
+      return;
+    }
     retries.current = 0;
     const index = "rows" in revealRequest ? revealRequest.index : targets[revealRequest.index];
     pendingTarget.current = index;
@@ -254,7 +276,17 @@ export function DiffViewer({
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };
-  }, [revealRequest, targets, listReady, effectiveWrap, revealRow]);
+  }, [
+    revealRequest,
+    targets,
+    listReady,
+    effectiveWrap,
+    revealRow,
+    diff,
+    navigation.request,
+    mode,
+    preserveScrollOnRefresh,
+  ]);
 
   function background(line: DiffLine | null, gutter = false) {
     return line?.kind === "added"

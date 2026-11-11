@@ -1,0 +1,642 @@
+{
+  "measuredAt": "2026-11-11T14:20:51.868Z",
+  "gitlens": "0.6.0",
+  "gitlensCommit": "c39dcdfc80994b9672701059c1e5878ddf2f67a3",
+  "paseo": "0.16.0-beta.1",
+  "environment": {
+    "node": "v24.22.2",
+    "git": "git version 2.52.0",
+    "platform": "darwin 25.6.0 arm64",
+    "cpu": "Apple M5",
+    "logicalCpus": 10,
+    "memoryBytes": 25769803776,
+    "load": [27.3583984375, 19.8935546875, 14.67919921875]
+  },
+  "method": {
+    "rounds": 7,
+    "excludedWarmupsPerScenario": 1,
+    "transport": "Real loopback WebSocket; one isolated official daemon for both paths; SDK 0.16.0-beta.1",
+    "cold": "Fresh repository directory and application comparison keys, warm OS filesystem cache; startup and corpus construction excluded",
+    "order": "Rotate all three modes each round; never benchmark modes concurrently; idle 1100 ms before each mode to drain the preceding Git start-rate window",
+    "nativeHighlight": "paseo-highlight uses default server syntax highlighting; paseo-plain disables it as a control",
+    "pluginAll": "Diagnostic eager load: first file then remaining files with six concurrent RPCs; normal plugin UI only loads selected files",
+    "cache": "GitLens repeats one cached file RPC; Paseo repeats the whole cached comparison while original subscription remains active; different scopes",
+    "expiry": "GitLens waits 1100 ms outside timing, then reads an already cached file; includes mandatory snapshot revalidation",
+    "traffic": "Server-to-client WebSocket payload bytes while operation is active; excludes TCP/WebSocket framing, requests, and handshake",
+    "ui": "No browser rendering or FPS measured; plugin visibleHighlightMs separately runs current syntax state, split-row model and first 40 patch lines",
+    "submodules": "Coverage diagnostic; native root comparison has 20 files, GitLens recursively returns 200; timings are not equivalent work"
+  },
+  "corpora": [
+    {
+      "name": "tracked-1000",
+      "label": "1000 个已跟踪文件，每个 100 行，修改 1 行",
+      "repositories": ["."],
+      "additions": 1000,
+      "deletions": 1000,
+      "nativeAdditions": 1000,
+      "nativeDeletions": 1000,
+      "allFiles": true,
+      "fileCount": 1000,
+      "nativeFileCount": 1000
+    }
+  ],
+  "summary": [
+    {
+      "scenario": "tracked-1000",
+      "mode": "gitlens",
+      "n": 7,
+      "files": 1000,
+      "metrics": {
+        "listMs": {
+          "median": 443.10050000000047,
+          "min": 297.3543340000033,
+          "max": 1074.7328750000015
+        },
+        "firstFileMs": {
+          "median": 460.03804200000013,
+          "min": 309.9747920000009,
+          "max": 1108.1347079999978
+        },
+        "allFilesMs": {
+          "median": 6821.968875000006,
+          "min": 5973.301042000006,
+          "max": 31244.16562500001
+        },
+        "cacheMs": {
+          "median": 0.47683300000062445,
+          "min": 0.21191699999326374,
+          "max": 4.262459000019589
+        },
+        "expiredSnapshotFileMs": {
+          "median": 443.11829099999886,
+          "min": 294.82816699999967,
+          "max": 651.4911670000001
+        },
+        "visibleHighlightMs": {
+          "median": 0.32829099998343736,
+          "min": 0.1380829999980051,
+          "max": 2.3505829999921843
+        },
+        "listBytes": {
+          "median": 168288,
+          "min": 168288,
+          "max": 168288
+        },
+        "firstFileBytes": {
+          "median": 170350,
+          "min": 170350,
+          "max": 170350
+        },
+        "allFilesBytes": {
+          "median": 2232803,
+          "min": 2232788,
+          "max": 2232833
+        },
+        "binaryFrames": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "scenario": "tracked-1000",
+      "mode": "paseo-highlight",
+      "n": 7,
+      "files": 1000,
+      "metrics": {
+        "listMs": {
+          "median": 495.1295420000097,
+          "min": 442.67258300000685,
+          "max": 781.6188750000147
+        },
+        "firstFileMs": {
+          "median": 6131.662208000009,
+          "min": 4008.632375000001,
+          "max": 11393.151541
+        },
+        "allFilesMs": {
+          "median": 6131.662208000009,
+          "min": 4008.632375000001,
+          "max": 11393.151541
+        },
+        "cacheMs": {
+          "median": 62.325333999993745,
+          "min": 40.103250000000116,
+          "max": 164.4907499999972
+        },
+        "expiredSnapshotFileMs": null,
+        "visibleHighlightMs": null,
+        "listBytes": {
+          "median": 31794,
+          "min": 31794,
+          "max": 31794
+        },
+        "firstFileBytes": {
+          "median": 919340,
+          "min": 919325,
+          "max": 919355
+        },
+        "allFilesBytes": {
+          "median": 919340,
+          "min": 919325,
+          "max": 919355
+        },
+        "binaryFrames": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        }
+      }
+    },
+    {
+      "scenario": "tracked-1000",
+      "mode": "paseo-plain",
+      "n": 7,
+      "files": 1000,
+      "metrics": {
+        "listMs": {
+          "median": 450.0285830000066,
+          "min": 378.1687499999971,
+          "max": 1037.597792000015
+        },
+        "firstFileMs": {
+          "median": 865.8534999999974,
+          "min": 728.5280419999981,
+          "max": 2284.9163340000086
+        },
+        "allFilesMs": {
+          "median": 865.8534999999974,
+          "min": 728.5280419999981,
+          "max": 2284.9163340000086
+        },
+        "cacheMs": {
+          "median": 32.67987500000163,
+          "min": 22.958582999999635,
+          "max": 65.43195800000103
+        },
+        "expiredSnapshotFileMs": null,
+        "visibleHighlightMs": null,
+        "listBytes": {
+          "median": 31794,
+          "min": 31794,
+          "max": 31809
+        },
+        "firstFileBytes": {
+          "median": 567319,
+          "min": 567319,
+          "max": 567334
+        },
+        "allFilesBytes": {
+          "median": 567319,
+          "min": 567319,
+          "max": 567334
+        },
+        "binaryFrames": {
+          "median": 5,
+          "min": 5,
+          "max": 5
+        }
+      }
+    }
+  ],
+  "samples": [
+    {
+      "scenario": "tracked-1000",
+      "round": 0,
+      "mode": "paseo-highlight",
+      "listMs": 450.5214999999989,
+      "firstFileMs": 4008.632375000001,
+      "allFilesMs": 4008.632375000001,
+      "cacheMs": 40.103250000000116,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919325,
+      "allFilesBytes": 919325,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [10.5087890625, 11.4423828125, 11.12451171875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 0,
+      "mode": "paseo-plain",
+      "listMs": 427.0158749999973,
+      "firstFileMs": 809.0168330000015,
+      "allFilesMs": 809.0168330000015,
+      "cacheMs": 22.958582999999635,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 567319,
+      "allFilesBytes": 567319,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [10.5087890625, 11.4423828125, 11.12451171875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 0,
+      "mode": "gitlens",
+      "listMs": 334.9472919999971,
+      "firstFileMs": 351.87608300000284,
+      "allFilesMs": 6138.612166999999,
+      "cacheMs": 0.47683300000062445,
+      "expiredSnapshotFileMs": 294.82816699999967,
+      "visibleHighlightMs": 0.4918330000000424,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232803,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [10.49072265625, 11.41015625, 11.11669921875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 1,
+      "mode": "paseo-plain",
+      "listMs": 378.1687499999971,
+      "firstFileMs": 728.5280419999981,
+      "allFilesMs": 728.5280419999981,
+      "cacheMs": 25.548957999999402,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 567319,
+      "allFilesBytes": 567319,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [10.49072265625, 11.41015625, 11.11669921875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 1,
+      "mode": "gitlens",
+      "listMs": 297.3543340000033,
+      "firstFileMs": 309.9747920000009,
+      "allFilesMs": 5973.301042000006,
+      "cacheMs": 0.2805420000004233,
+      "expiredSnapshotFileMs": 443.11829099999886,
+      "visibleHighlightMs": 0.1455000000059954,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232788,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [9.56591796875, 11.18212890625, 11.0390625]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 1,
+      "mode": "paseo-highlight",
+      "listMs": 454.88116699999955,
+      "firstFileMs": 4120.348000000005,
+      "allFilesMs": 4120.348000000005,
+      "cacheMs": 42.22337499999412,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919340,
+      "allFilesBytes": 919340,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [9.2802734375, 11.095703125, 11.00927734375]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 2,
+      "mode": "gitlens",
+      "listMs": 613.1163329999981,
+      "firstFileMs": 630.6752080000006,
+      "allFilesMs": 6533.12662499999,
+      "cacheMs": 0.21895799999765586,
+      "expiredSnapshotFileMs": 307.84616699999606,
+      "visibleHighlightMs": 0.1829169999982696,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232803,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [10.6142578125, 11.322265625, 11.09033203125]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 2,
+      "mode": "paseo-highlight",
+      "listMs": 495.1295420000097,
+      "firstFileMs": 6131.662208000009,
+      "allFilesMs": 6131.662208000009,
+      "cacheMs": 62.325333999993745,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919325,
+      "allFilesBytes": 919325,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [11.75244140625, 11.55517578125, 11.17578125]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 2,
+      "mode": "paseo-plain",
+      "listMs": 486.7497089999961,
+      "firstFileMs": 893.3967499999999,
+      "allFilesMs": 893.3967499999999,
+      "cacheMs": 32.67987500000163,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 567319,
+      "allFilesBytes": 567319,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [11.75244140625, 11.55517578125, 11.17578125]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 3,
+      "mode": "paseo-highlight",
+      "listMs": 442.67258300000685,
+      "firstFileMs": 4490.614583000002,
+      "allFilesMs": 4490.614583000002,
+      "cacheMs": 57.16479199999594,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919325,
+      "allFilesBytes": 919325,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [11.61181640625, 11.529296875, 11.16845703125]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 3,
+      "mode": "paseo-plain",
+      "listMs": 438.53925000000163,
+      "firstFileMs": 865.8534999999974,
+      "allFilesMs": 865.8534999999974,
+      "cacheMs": 26.783958999993047,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31809,
+      "firstFileBytes": 567334,
+      "allFilesBytes": 567334,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [11.08203125, 11.4208984375, 11.1318359375]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 3,
+      "mode": "gitlens",
+      "listMs": 441.40429200000654,
+      "firstFileMs": 457.3226250000007,
+      "allFilesMs": 6821.968875000006,
+      "cacheMs": 0.21191699999326374,
+      "expiredSnapshotFileMs": 420.6263340000005,
+      "visibleHighlightMs": 0.1380829999980051,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232788,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [9.9990234375, 11.17626953125, 11.0478515625]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 4,
+      "mode": "paseo-plain",
+      "listMs": 640.5972919999913,
+      "firstFileMs": 1199.8862089999893,
+      "allFilesMs": 1199.8862089999893,
+      "cacheMs": 65.43195800000103,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 567319,
+      "allFilesBytes": 567319,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [9.9990234375, 11.17626953125, 11.0478515625]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 4,
+      "mode": "gitlens",
+      "listMs": 1074.7328750000015,
+      "firstFileMs": 1108.1347079999978,
+      "allFilesMs": 31244.16562500001,
+      "cacheMs": 2.0675829999963753,
+      "expiredSnapshotFileMs": 645.6292499999981,
+      "visibleHighlightMs": 2.3505829999921843,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232833,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [45.00830078125, 19.7353515625, 14.1669921875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 4,
+      "mode": "paseo-highlight",
+      "listMs": 781.6188750000147,
+      "firstFileMs": 11393.151541,
+      "allFilesMs": 11393.151541,
+      "cacheMs": 73.31966700000339,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919355,
+      "allFilesBytes": 919355,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [40.2724609375, 19.939453125, 14.33740234375]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 5,
+      "mode": "gitlens",
+      "listMs": 787.2213749999937,
+      "firstFileMs": 843.0899999999965,
+      "allFilesMs": 17065.923875000008,
+      "cacheMs": 4.262459000019589,
+      "expiredSnapshotFileMs": 651.4911670000001,
+      "visibleHighlightMs": 1.7730830000073183,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232818,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [37.08203125, 20.50048828125, 14.66650390625]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 5,
+      "mode": "paseo-highlight",
+      "listMs": 648.2740420000046,
+      "firstFileMs": 7604.981375000003,
+      "allFilesMs": 7604.981375000003,
+      "cacheMs": 164.4907499999972,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919340,
+      "allFilesBytes": 919340,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [32.67138671875, 20.10400390625, 14.59423828125]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 5,
+      "mode": "paseo-plain",
+      "listMs": 1037.597792000015,
+      "firstFileMs": 2284.9163340000086,
+      "allFilesMs": 2284.9163340000086,
+      "cacheMs": 63.83241600001929,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 567319,
+      "allFilesBytes": 567319,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [32.9375, 20.36767578125, 14.71923828125]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 6,
+      "mode": "paseo-highlight",
+      "listMs": 702.4911659999925,
+      "firstFileMs": 7312.836540999997,
+      "allFilesMs": 7312.836540999997,
+      "cacheMs": 63.6507500000007,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 919340,
+      "allFilesBytes": 919340,
+      "binaryFrames": 6,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [29.384765625, 20.02490234375, 14.66357421875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 6,
+      "mode": "paseo-plain",
+      "listMs": 450.0285830000066,
+      "firstFileMs": 847.4976249999891,
+      "allFilesMs": 847.4976249999891,
+      "cacheMs": 36.22983299999032,
+      "expiredSnapshotFileMs": null,
+      "visibleHighlightMs": null,
+      "listBytes": 31794,
+      "firstFileBytes": 567319,
+      "allFilesBytes": 567319,
+      "binaryFrames": 5,
+      "files": 1000,
+      "repositories": null,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [29.384765625, 20.02490234375, 14.66357421875]
+    },
+    {
+      "scenario": "tracked-1000",
+      "round": 6,
+      "mode": "gitlens",
+      "listMs": 443.10050000000047,
+      "firstFileMs": 460.03804200000013,
+      "allFilesMs": 8665.86162499999,
+      "cacheMs": 1.014208000007784,
+      "expiredSnapshotFileMs": 487.46374999999534,
+      "visibleHighlightMs": 0.32829099998343736,
+      "listBytes": 168288,
+      "firstFileBytes": 170350,
+      "allFilesBytes": 2232803,
+      "binaryFrames": 0,
+      "files": 1000,
+      "repositories": 1,
+      "contentDigest": "8506158ba5e1dc9a9831656939fe7b1a84b47aabdc5cd96688254c5ab1e25240",
+      "load": [27.3583984375, 19.8935546875, 14.67919921875]
+    }
+  ],
+  "runtimePackages": {
+    "@getpaseo/server": {
+      "version": "0.16.0-beta.1",
+      "integrity": "sha512-Ry3wOu0bagM4cKd4eAdJAGlka71Jf/TejiMNr4BcNLbiYx+RhW0U7n8azViKwe5wN/5oZ5tmhCO+jQNaKCbjIw=="
+    },
+    "@getpaseo/client": {
+      "version": "0.16.0-beta.1",
+      "integrity": "sha512-uU5+myB+MKU4igthR1vioJEc8VFFeGsJB8t2xUKsrgUC3e1jP3408cBc4iUkDEp7LaMqCV5Nih8I/ECmFqHoHA=="
+    },
+    "@getpaseo/protocol": {
+      "version": "0.16.0-beta.1",
+      "integrity": "sha512-RU/Q8OxRWGJ4NSGSZV0Y9j8/12SCgcA/ulxfldgmtnxBRV1upfW6c6ao7sK9Bz0mQ5vZfxpLNVSzKqheChoKgw=="
+    },
+    "@getpaseo/plugin": {
+      "version": "0.16.0-beta.1",
+      "integrity": "sha512-GKgbq48oMxheir+REDfIRKStIb99EiXAx8S/54JxrsI5x+TvJ+5fV81X9qkQM6JISa3z1Vrkw01lN2XvnGhz8g=="
+    },
+    "@getpaseo/highlight": {
+      "version": "0.16.0-beta.1",
+      "integrity": "sha512-Yt4dptM8oxQ3jp7FUAHw/CQOH/YsOBAxGtPThnJ9OqKACVJXvWhurR2u+VWm5i/X2DeyUrwP4WXgl6svPLmZxg=="
+    },
+    "@getpaseo/cli": {
+      "version": "0.16.0-beta.1",
+      "integrity": "sha512-fahHzocbzA2PyNEN+YHoDYIxdiada3lvdovDEIjgo506DRKS/qTVABnrsfTe1yWtdjFsCKsbNJsdc1kmBctgow=="
+    },
+    "p-throttle": {
+      "version": "8.1.1",
+      "integrity": "sha512-xxWFBUyvbrQ10XC3VAr0SoXoOCKXqCX/yvbFIkBE98upphHFwjIKR6AId13ZH3jngFfF6yK43QTOtrngYAmFMA=="
+    },
+    "ws": {
+      "version": "8.22.2",
+      "integrity": "sha512-/rEZ2ejown2N5gxVTHUu9bVVC7ttu0/Tgzf5hbTOixR3Fs7mbbXgn2DbdbcKgJOmpQMtrIUWivtYuVMnp/W/yA=="
+    },
+    "esbuild": {
+      "version": "0.25.12",
+      "integrity": "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg=="
+    }
+  }
+}

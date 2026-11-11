@@ -40,3 +40,66 @@ it("preserves input order while concurrently reading file metadata", async () =>
   expect(peak).toBe(12);
   expect(results).toEqual(Array.from({ length: 100 }, (_, i) => i * 2));
 });
+
+it("starts interactive work before queued background work and supports promotion", async () => {
+  const pool = new TaskPool(1);
+  let release!: () => void;
+  const held = pool.run(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const order: string[] = [];
+  let promoted: "background" | "interactive" = "background";
+  const background = pool.run(
+    async () => {
+      order.push("background");
+    },
+    { priority: "background" },
+  );
+  const upgrade = pool.run(
+    async () => {
+      order.push("promoted");
+    },
+    { priority: () => promoted },
+  );
+  const normal = pool.run(async () => {
+    order.push("normal");
+  });
+  const foreground = pool.run(
+    async () => {
+      order.push("interactive");
+    },
+    { priority: "interactive" },
+  );
+  promoted = "interactive";
+  release();
+  await Promise.all([held, background, upgrade, normal, foreground]);
+  expect(order).toEqual(["promoted", "interactive", "normal", "background"]);
+});
+
+it("removes cancelled queued reads without starting them or losing capacity", async () => {
+  const pool = new TaskPool(1);
+  let release!: () => void;
+  const held = pool.run(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const controller = new AbortController();
+  let started = false;
+  const cancelled = pool.run(
+    async () => {
+      started = true;
+    },
+    { signal: controller.signal },
+  );
+  const failed = expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+  controller.abort();
+  release();
+  await Promise.all([held, failed]);
+  expect(started).toBe(false);
+  expect(await pool.run(async () => "available")).toBe("available");
+});

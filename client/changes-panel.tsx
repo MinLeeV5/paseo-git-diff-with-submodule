@@ -708,16 +708,17 @@ function WorkspaceEditor({
         ? "unified"
         : mode
       : mode;
-  const viewKey = JSON.stringify([selected?.file.version, comparison, context, ignoreWhitespace]);
+  const viewKey = JSON.stringify([comparison, context, ignoreWhitespace]);
+  const navigationViewKey = viewKey;
   const currentStats = selectedKey ? editorStats[selectedKey] : undefined;
   const hunkCount = currentStats?.view === viewKey ? currentStats.hunks : 0;
   const position = selectedKey ? hunkPositions[selectedKey] : undefined;
   const hunkIndex = Math.min(
-    position?.view === viewKey ? position.index : 0,
+    position?.view === navigationViewKey ? position.index : 0,
     Math.max(0, hunkCount - 1),
   );
   const hunkRequest = position?.request ?? 0;
-  const hunkTarget = position?.view === viewKey ? position : INITIAL_HUNK_NAVIGATION;
+  const hunkTarget = position?.view === navigationViewKey ? position : INITIAL_HUNK_NAVIGATION;
   const visibleFiles = useMemo(() => model.rows.filter((row) => row.kind === "file"), [model.rows]);
   const fileIndex = visibleFiles.findIndex((row) => row.key === (focusedFile ?? selectedKey));
   const toggle = useCallback(
@@ -786,7 +787,7 @@ function WorkspaceEditor({
       setHunkPositions((previous) => ({
         ...previous,
         [selectedKey]: {
-          view: viewKey,
+          view: navigationViewKey,
           index: (hunkIndex + delta + hunkCount) % hunkCount,
           request: hunkRequest + 1,
         },
@@ -1325,6 +1326,15 @@ function WorkspaceEditor({
                 />
               </View>
             ) : null}
+            {changes.data?.pending ? (
+              <View
+                testID="git-repositories-loading"
+                style={{ flexDirection: "row", alignItems: "center", padding: 8, gap: 6 }}
+              >
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={styles.muted}>正在读取其余仓库…</Text>
+              </View>
+            ) : null}
             {changes.loading ? (
               <View style={styles.loading}>
                 <ActivityIndicator size="small" color={colors.accent} />
@@ -1543,7 +1553,7 @@ function WorkspaceEditor({
                 onHunkChange={(index) =>
                   setHunkPositions((previous) => ({
                     ...previous,
-                    [selectedKey]: { view: viewKey, index, request: hunkRequest },
+                    [selectedKey]: { view: navigationViewKey, index, request: hunkRequest },
                   }))
                 }
                 previewNavigation={

@@ -71,3 +71,8 @@ export const commitFileDiffRpc = defineRpc({
   output: fileDiffSchema,
 });
 export type CommitDiffInput = z.infer<typeof commitFileDiffRpc.input>;
+export const commitFileDiffViewRpc = defineRpc({
+  name: "git.commit-file-diff-view",
+  input: commitFileDiffRpc.input,
+  output: fileDiffSchema,
+});

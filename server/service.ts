@@ -1,6 +1,11 @@
 import { lstat, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import type { ChangesSnapshot, Comparison, FileDiff } from "../shared/contracts";
+import type {
+  ChangesSnapshot,
+  Comparison,
+  FileDiff,
+  RepositorySnapshot,
+} from "../shared/contracts";
 import { DiffCache } from "../shared/diff-cache";
 import type {
   CommitDetails,
@@ -12,23 +17,44 @@ import { parsePreviewLink } from "../shared/preview-links";
 import type { RepositoryAction } from "../shared/repository-contracts";
 import type { PanelSettings } from "../shared/settings";
 import { type CommitMessagePaseo, generatePaseoCommitMessage } from "./commit-message";
-import { readFileDiff } from "./diff";
+import { FileDiffBatcher } from "./diff";
 import { readContent, revealInFileManager } from "./files";
+import { type GitReadContext, withGitPriority } from "./git";
 import { readCommit, readCommitDiff, readHistory } from "./history";
-import { RepositoryScanCache, resolveFile, scanWorkspace } from "./repositories";
+import { digest, RepositoryScanCache, resolveFile, scanWorkspace } from "./repositories";
 import { generateCommitMessage, runRepositoryAction } from "./repository-actions";
+import { RepositoryStore, repositoryBody, SNAPSHOT_TTL } from "./repository-store";
+
+interface SnapshotInput {
+  directory: string;
+  comparison: Comparison;
+  force?: boolean;
+  progressive?: boolean;
+  background?: boolean;
+}
+interface SnapshotEntry {
+  time: number;
+  pending: boolean;
+  promise: Promise<ChangesSnapshot>;
+  first: Promise<void>;
+  current?: ChangesSnapshot;
+  readGeneration: number;
+  context: GitReadContext;
+  seen: ReadonlyMap<string, RepositorySnapshot>;
+}
 
 export class GitChangesService {
   private readonly operations = new Set<string>();
   private readonly generationController = new AbortController();
+  private epoch = 0;
 
   async repositoryAction(input: RepositoryAction) {
-    const snapshot = await this.snapshot({
+    const repository = await this.repository({
       directory: input.directory,
       comparison: "head",
       force: true,
+      repositoryId: input.repositoryId,
     });
-    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
     if (repository?.state !== "ready") throw new Error("所属仓库不可用，请刷新后重试。");
     if (this.operations.has(repository.directory))
       throw new Error("此仓库正在执行 Git 操作，请等待完成。");
@@ -37,10 +63,7 @@ export class GitChangesService {
       return await runRepositoryAction(repository, input);
     } finally {
       this.operations.delete(repository.directory);
-      this.snapshots.clear();
-      this.patches.clear();
-      this.pendingPatches.clear();
-      this.scanCache.clear();
+      this.invalidate(repository);
     }
   }
 
@@ -85,8 +108,7 @@ export class GitChangesService {
   private readonly commits = new Map<string, Promise<CommitDetails>>();
 
   private async historyRepository(input: { directory: string; repositoryId: string }) {
-    const snapshot = await this.snapshot({ directory: input.directory, comparison: "head" });
-    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    const repository = await this.repository({ ...input, comparison: "head" });
     if (repository?.state !== "ready") throw new Error("所属仓库不可用，请刷新后重试。");
     return repository;
   }
@@ -133,31 +155,17 @@ export class GitChangesService {
       input.context,
       input.ignoreWhitespace,
     ]);
-    const existing = this.patches.get(key);
-    if (existing) return existing;
-    const pending = this.pendingPatches.get(key);
-    if (pending) return pending;
-    const promise = this.cachedCommit(repository.directory, input.oid).then((commit) =>
-      readCommitDiff(
-        repository.directory,
-        commit,
-        input.path,
-        input.context,
-        input.ignoreWhitespace,
+    return this.cachedPatch(key, () =>
+      this.cachedCommit(repository.directory, input.oid).then((commit) =>
+        readCommitDiff(
+          repository.directory,
+          commit,
+          input.path,
+          input.context,
+          input.ignoreWhitespace,
+        ),
       ),
     );
-    this.pendingPatches.set(key, promise);
-    void promise.then(
-      (diff) => {
-        if (this.pendingPatches.get(key) !== promise) return;
-        this.pendingPatches.delete(key);
-        this.patches.set(key, diff);
-      },
-      () => {
-        if (this.pendingPatches.get(key) === promise) this.pendingPatches.delete(key);
-      },
-    );
-    return promise;
   }
 
   private async fileRepository(input: {
@@ -167,8 +175,7 @@ export class GitChangesService {
     comparison: Comparison;
     scope?: "changes" | "workspace";
   }) {
-    const snapshot = await this.snapshot(input);
-    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    const repository = await this.repository(input);
     if (
       repository?.state !== "ready" ||
       (input.scope !== "workspace" && !repository.files.some((file) => file.path === input.path))
@@ -287,40 +294,226 @@ export class GitChangesService {
       fragment: link.fragment,
     };
   }
-  private readonly snapshots = new Map<
-    string,
-    { time: number; pending: boolean; promise: Promise<ChangesSnapshot> }
-  >();
+  private readonly snapshots = new Map<string, SnapshotEntry>();
+  private scanSerial = 0;
+  private readonly catalogs = new Map<string, Map<string, RepositorySnapshot>>();
+  private readonly repositories = new RepositoryStore();
   private readonly patches = new DiffCache(8 * 1024 * 1024, 24);
   private readonly pendingPatches = new Map<string, Promise<FileDiff>>();
+  private readonly patchControllers = new Map<string, AbortController>();
   private readonly scanCache = new RepositoryScanCache();
+  private readonly diffBatcher = new FileDiffBatcher();
 
-  snapshot(input: {
-    directory: string;
-    comparison: Comparison;
-    force?: boolean;
-  }): Promise<ChangesSnapshot> {
+  snapshot(input: SnapshotInput): Promise<ChangesSnapshot> {
     const key = JSON.stringify([resolve(input.directory), input.comparison]);
     const existing = this.snapshots.get(key);
-    if (existing && (existing.pending || (!input.force && Date.now() - existing.time < 1000)))
-      return existing.promise;
-    const promise = scanWorkspace(input, this.scanCache);
-    const entry = { time: Date.now(), pending: true, promise };
+    const select = (entry: SnapshotEntry) =>
+      input.progressive && entry.pending
+        ? entry.first.then(() => entry.current ?? entry.promise)
+        : entry.promise;
+    if (
+      existing &&
+      (existing.pending || (!input.force && Date.now() - existing.time < SNAPSHOT_TTL))
+    )
+      return select(existing);
+    let firstReady!: () => void;
+    let firstFailed!: (error: unknown) => void;
+    const first = new Promise<void>((accept, reject) => {
+      firstReady = accept;
+      firstFailed = reject;
+    });
+    void first.catch(() => {});
+    const announced = new Map<string, RepositorySnapshot>();
+    const ordering = new Map<string, string>();
+    const scanId = ++this.scanSerial;
+    const readGeneration = input.force ? this.repositories.nextGeneration() : 0;
+    const context: GitReadContext = { priority: input.background ? "background" : "normal" };
+    const promise = withGitPriority(context, () =>
+      scanWorkspace(input, this.scanCache, {
+        read: this.repositories.reader(false, readGeneration),
+        onRepository: (repository, directory, hasChildren, order) => {
+          if (this.snapshots.get(key) !== entry) return;
+          if (repository.id === ".") context.priority = input.background ? "background" : "normal";
+          this.remember(key, repository);
+          announced.set(repository.id, repository);
+          ordering.set(repository.id, order);
+          if (repository.id === "." && !hasChildren) return;
+          const repositories = [...announced.values()].sort((a, b) =>
+            (ordering.get(a.id) as string) < (ordering.get(b.id) as string) ? -1 : 1,
+          );
+          // Refresh keeps the already painted complete tree until the new scan settles.
+          const previous = existing?.current;
+          entry.current =
+            previous && !previous.pending
+              ? { ...previous, pending: true }
+              : {
+                  directory,
+                  comparison: input.comparison,
+                  repositories,
+                  pending: true,
+                  version: `scan:${scanId}:${announced.size}`,
+                  scannedAt: new Date().toISOString(),
+                };
+          firstReady();
+        },
+      }),
+    );
+    const entry: SnapshotEntry = {
+      time: Date.now(),
+      pending: true,
+      promise,
+      first,
+      readGeneration,
+      context,
+      seen: announced,
+    };
     this.snapshots.set(key, entry);
     void promise.then(
-      () => {
+      (snapshot) => {
         entry.pending = false;
         entry.time = Date.now();
+        entry.current = snapshot;
+        if (this.snapshots.get(key) === entry)
+          this.catalogs.set(key, new Map(snapshot.repositories.map((repo) => [repo.id, repo])));
+        firstReady();
       },
-      () => {
+      (error) => {
+        firstFailed(error);
         if (this.snapshots.get(key) === entry) this.snapshots.delete(key);
       },
     );
     if (this.snapshots.size > 20) {
       const first = this.snapshots.keys().next().value;
-      if (first !== undefined) this.snapshots.delete(first);
+      if (first !== undefined) {
+        this.snapshots.delete(first);
+        this.catalogs.delete(first);
+      }
     }
-    return promise;
+    return select(entry);
+  }
+
+  private readonly repositoryVersions = new WeakMap<RepositorySnapshot, string>();
+  async snapshotView(input: SnapshotInput & { known?: Record<string, string> }) {
+    const snapshot = await this.snapshot(input);
+    const versions: Record<string, string> = Object.create(null);
+    for (const repository of snapshot.repositories) {
+      let version = this.repositoryVersions.get(repository);
+      if (!version) {
+        version = digest(repository);
+        this.repositoryVersions.set(repository, version);
+      }
+      versions[repository.id] = version;
+    }
+    return {
+      ...snapshot,
+      repositoryIds: snapshot.repositories.map((repo) => repo.id),
+      repositoryVersions: versions,
+      repositories: snapshot.repositories.filter(
+        (repo) => input.known?.[repo.id] !== versions[repo.id],
+      ),
+    };
+  }
+
+  private remember(key: string, repository: RepositorySnapshot) {
+    let catalog = this.catalogs.get(key);
+    if (!catalog) {
+      catalog = new Map();
+      this.catalogs.set(key, catalog);
+    }
+    catalog.set(repository.id, repository);
+    while (this.catalogs.size > 20) {
+      const first = this.catalogs.keys().next().value as string;
+      this.catalogs.delete(first);
+      this.snapshots.delete(first);
+    }
+  }
+
+  private repository(input: {
+    directory: string;
+    comparison: Comparison;
+    repositoryId: string;
+    force?: boolean;
+  }): Promise<RepositorySnapshot | undefined> {
+    return withGitPriority({ priority: "interactive" }, async () => {
+      const epoch = this.epoch;
+      const key = JSON.stringify([resolve(input.directory), input.comparison]);
+      const known = this.catalogs.get(key)?.get(input.repositoryId);
+      const activeScan = this.snapshots.get(key);
+      const needsFresh = Boolean(
+        activeScan?.pending &&
+          activeScan.readGeneration &&
+          !activeScan.seen.has(input.repositoryId),
+      );
+      if (needsFresh && input.repositoryId === "." && activeScan) {
+        // A full scan always reads the root first. Reuse that result without
+        // rediscovering it or waiting for any of its children.
+        activeScan.context.priority = "interactive";
+        if (known?.state === "ready")
+          this.repositories.pending(known.directory, input.comparison, activeScan.readGeneration);
+        await activeScan.first;
+        if (this.epoch !== epoch) return this.repository(input);
+        return activeScan.seen.get(".");
+      }
+      if (known?.state === "ready" && !input.force) {
+        const pending = this.repositories.pending(
+          known.directory,
+          input.comparison,
+          needsFresh ? activeScan?.readGeneration : 0,
+        );
+        if (pending) return repositoryBody(await pending, known);
+        if (!needsFresh) {
+          const cached = this.repositories.peek(known.directory, input.comparison);
+          if (cached) return repositoryBody(cached, known);
+          const snapshot = this.snapshots.get(key);
+          if (snapshot && !snapshot.pending && Date.now() - snapshot.time < SNAPSHOT_TTL)
+            return known;
+        }
+      }
+      const snapshot = await scanWorkspace(input, this.scanCache, {
+        repositoryId: input.repositoryId,
+        read: this.repositories.reader(
+          false,
+          input.force
+            ? this.repositories.nextGeneration()
+            : needsFresh
+              ? activeScan?.readGeneration
+              : 0,
+        ),
+        onRepository: (repository) => {
+          if (this.epoch === epoch) this.remember(key, repository);
+        },
+      });
+      const old = this.snapshots.get(key);
+      if (old && !old.pending && Date.now() - old.time >= SNAPSHOT_TTL) this.snapshots.delete(key);
+      return snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    });
+  }
+
+  private invalidate(repository: RepositorySnapshot) {
+    this.epoch++;
+    const directories = new Set([repository.directory]);
+    for (const [key, catalog] of this.catalogs) {
+      let current = [...catalog.values()].find((repo) => repo.directory === repository.directory);
+      if (!current) continue;
+      this.snapshots.delete(key);
+      while (current) {
+        directories.add(current.directory);
+        current = current.parentId === null ? undefined : catalog.get(current.parentId);
+      }
+    }
+    this.repositories.invalidate(directories);
+    this.diffBatcher.invalidate(directories);
+    const affected = (key: string) => {
+      const parts = JSON.parse(key) as unknown[];
+      return parts[0] !== "commit" && directories.has(parts[0] as string);
+    };
+    this.patches.deleteWhere(affected);
+    for (const key of this.pendingPatches.keys())
+      if (affected(key)) {
+        this.patchControllers.get(key)?.abort();
+        this.patchControllers.delete(key);
+        this.pendingPatches.delete(key);
+      }
   }
 
   async diff(input: {
@@ -331,8 +524,7 @@ export class GitChangesService {
     context: number;
     ignoreWhitespace: boolean;
   }): Promise<FileDiff> {
-    const snapshot = await this.snapshot(input);
-    const repository = snapshot.repositories.find((repo) => repo.id === input.repositoryId);
+    const repository = await this.repository(input);
     if (repository?.state !== "ready") throw new Error("所属仓库不可用，请刷新后重试。");
     const file = repository.files.find((change) => change.path === input.path);
     if (!file) throw new Error("文件已不在当前变更列表中，请刷新后重试。");
@@ -343,37 +535,62 @@ export class GitChangesService {
       input.context,
       input.ignoreWhitespace,
     ]);
+    return this.cachedPatch(key, (execution) =>
+      this.diffBatcher.read(
+        repository,
+        input.path,
+        input.comparison,
+        input.context,
+        input.ignoreWhitespace,
+        this.repositories.peek(repository.directory, input.comparison)?.baseEntries?.get(input.path)
+          ?.oid,
+        execution,
+      ),
+    );
+  }
+
+  private cachedPatch(
+    key: string,
+    read: (execution: GitReadContext) => Promise<FileDiff>,
+  ): Promise<FileDiff> {
     const existing = this.patches.get(key);
-    if (existing) return existing;
+    if (existing) return Promise.resolve(existing);
     const pending = this.pendingPatches.get(key);
     if (pending) return pending;
-    const promise = readFileDiff(
-      repository,
-      input.path,
-      input.comparison,
-      input.context,
-      input.ignoreWhitespace,
-    );
+    const controller = new AbortController();
+    const execution: GitReadContext = { priority: "interactive", signal: controller.signal };
+    const promise = withGitPriority(execution, () => read(execution));
     this.pendingPatches.set(key, promise);
+    this.patchControllers.set(key, controller);
     void promise.then(
       (diff) => {
         if (this.pendingPatches.get(key) !== promise) return;
         this.pendingPatches.delete(key);
+        this.patchControllers.delete(key);
         this.patches.set(key, diff);
       },
       () => {
-        if (this.pendingPatches.get(key) === promise) this.pendingPatches.delete(key);
+        if (this.pendingPatches.get(key) === promise) {
+          this.pendingPatches.delete(key);
+          this.patchControllers.delete(key);
+        }
       },
     );
     return promise;
   }
 
   close(): void {
+    this.epoch++;
     this.generationController.abort();
     this.commits.clear();
     this.snapshots.clear();
     this.patches.clear();
+    for (const controller of this.patchControllers.values()) controller.abort();
+    this.patchControllers.clear();
     this.pendingPatches.clear();
     this.scanCache.clear();
+    this.repositories.close();
+    this.diffBatcher.close();
+    this.catalogs.clear();
   }
 }

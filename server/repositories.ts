@@ -7,7 +7,7 @@ import type {
   FileChange,
   RepositorySnapshot,
 } from "../shared/contracts";
-import { mapLimit } from "./concurrency";
+import { mapLimit, TaskPool } from "./concurrency";
 import { DIFF_OPTIONS, errorMessage, git } from "./git";
 import {
   type IndexEntry,
@@ -107,11 +107,12 @@ async function modulePaths(directory: string): Promise<string[]> {
     .map((entry) => entry.slice(entry.indexOf("\n") + 1));
 }
 
-interface RepositoryRead {
+export interface RepositoryRead {
   snapshot: RepositorySnapshot;
+  baseEntries?: Map<string, IndexEntry>;
   modules: { path: string; recordedHead: string | null; indexedHead: string | null }[];
 }
-async function readRepository(
+export async function readRepository(
   directory: string,
   id: string,
   parentId: string | null,
@@ -120,13 +121,13 @@ async function readRepository(
   comparison: Comparison,
   cache: RepositoryScanCache,
 ): Promise<RepositoryRead> {
-  const head =
-    (
-      await git(directory, ["rev-parse", "--verify", "--quiet", "HEAD"], { acceptDifference: true })
-    ).trim() || null;
-  const [indexOutput, treeOutput, statusOutput, configuredModules] = await Promise.all([
+  const headRead = git(directory, ["rev-parse", "--verify", "--quiet", "HEAD"], {
+    acceptDifference: true,
+  }).then((value) => value.trim() || null);
+  const [head, indexOutput, treeOutput, statusOutput, configuredModules] = await Promise.all([
+    headRead,
     git(directory, ["ls-files", "--stage", "-z"]),
-    head ? git(directory, ["ls-tree", "-r", "-z", "HEAD"]) : Promise.resolve(""),
+    headRead.then((head) => (head ? git(directory, ["ls-tree", "-r", "-z", head]) : "")),
     git(directory, [
       "status",
       "--porcelain=v2",
@@ -196,6 +197,13 @@ async function readRepository(
   );
   const files = entries.filter((file): file is FileChange => file !== null);
   files.sort((left, right) => left.path.localeCompare(right.path));
+  // Batching only needs baseline objects for changed files. Retaining the entire
+  // HEAD tree would make a clean, very large repository an expensive cache entry.
+  const baseEntries = new Map<string, IndexEntry>();
+  for (const file of files) {
+    const entry = tree.get(file.path);
+    if (entry) baseEntries.set(file.path, entry);
+  }
   // Missing upstream refs (including deleted remote branches) have no branch.ab
   // record. Keep their counts unknown rather than showing a misleading zero.
   const divergence = /^# branch\.ab \+(\d+) -(\d+)$/.exec(
@@ -227,6 +235,7 @@ async function readRepository(
       error: null,
       files,
     },
+    baseEntries,
     modules: [...moduleNames].sort().map((path) => ({
       path,
       recordedHead: gitlink(tree, path),
@@ -245,18 +254,29 @@ export async function scanWorkspace(
     comparison: Comparison;
   },
   cache = new RepositoryScanCache(),
+  options: {
+    repositoryId?: string;
+    read?: typeof readRepository;
+    onRepository?(
+      repository: RepositorySnapshot,
+      directory: string,
+      hasChildren: boolean,
+      order: string,
+    ): void;
+  } = {},
 ): Promise<ChangesSnapshot> {
   const requested = await realpath(resolve(input.directory));
   const directory = await realpath((await git(requested, ["rev-parse", "--show-toplevel"])).trim());
-  const repositories: RepositorySnapshot[] = [];
   const visited = new Set<string>();
+  const reads = new TaskPool(3);
   async function visit(
     current: string,
     id: string,
     parentId: string | null,
     recordedHead: string | null,
     indexedHead: string | null,
-  ): Promise<void> {
+    order = "",
+  ): Promise<RepositorySnapshot[]> {
     const fallback: RepositorySnapshot = {
       upstream: null,
       aheadCount: null,
@@ -277,49 +297,74 @@ export async function scanWorkspace(
       files: [],
     };
     try {
-      if (parentId !== null) {
-        // rev-parse in an empty submodule directory otherwise resolves to the parent repository.
-        try {
-          await lstat(join(current, ".git"));
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-            repositories.push(fallback);
-            return;
+      const result = await reads.run(async (): Promise<RepositoryRead | null> => {
+        if (parentId !== null) {
+          // rev-parse in an empty submodule directory otherwise resolves to the parent repository.
+          try {
+            await lstat(join(current, ".git"));
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+              return null;
+            }
+            throw error;
           }
-          throw error;
         }
+        const canonical = await realpath(current);
+        const top =
+          parentId === null
+            ? directory
+            : await realpath((await git(canonical, ["rev-parse", "--show-toplevel"])).trim());
+        if (top !== canonical) {
+          return null;
+        }
+        if (visited.has(canonical)) throw new Error("检测到重复的子模块仓库路径。");
+        visited.add(canonical);
+        return (options.read ?? readRepository)(
+          canonical,
+          id,
+          parentId,
+          recordedHead,
+          indexedHead,
+          input.comparison,
+          cache,
+        );
+      });
+      if (!result) {
+        options.onRepository?.(fallback, directory, false, order);
+        return [fallback];
       }
-      const canonical = await realpath(current);
-      const top = await realpath((await git(canonical, ["rev-parse", "--show-toplevel"])).trim());
-      if (top !== canonical) {
-        repositories.push(fallback);
-        return;
-      }
-      if (visited.has(canonical)) throw new Error("检测到重复的子模块仓库路径。");
-      visited.add(canonical);
-      const result = await readRepository(
-        canonical,
-        id,
-        parentId,
-        recordedHead,
-        indexedHead,
-        input.comparison,
-        cache,
+      options.onRepository?.(result.snapshot, directory, result.modules.length > 0, order);
+      const children = await Promise.all(
+        result.modules.map(async (module, index) => {
+          const child = resolveFile(result.snapshot.directory, module.path);
+          const childId =
+            id === "."
+              ? module.path.split(sep).join("/")
+              : `${id}/${module.path.split(sep).join("/")}`;
+          if (
+            options.repositoryId !== undefined &&
+            options.repositoryId !== childId &&
+            !options.repositoryId.startsWith(`${childId}/`)
+          )
+            return [];
+          return visit(
+            child,
+            childId,
+            id,
+            module.recordedHead,
+            module.indexedHead,
+            `${order}${String(index).padStart(8, "0")}.`,
+          );
+        }),
       );
-      repositories.push(result.snapshot);
-      for (const module of result.modules) {
-        const child = resolveFile(canonical, module.path);
-        const childId =
-          id === "."
-            ? module.path.split(sep).join("/")
-            : `${id}/${module.path.split(sep).join("/")}`;
-        await visit(child, childId, id, module.recordedHead, module.indexedHead);
-      }
+      return [result.snapshot, ...children.flat()];
     } catch (error) {
-      repositories.push({ ...fallback, state: "error", error: errorMessage(error) });
+      const failed = { ...fallback, state: "error" as const, error: errorMessage(error) };
+      options.onRepository?.(failed, directory, false, order);
+      return [failed];
     }
   }
-  await visit(directory, ".", null, null, null);
+  const repositories = await visit(directory, ".", null, null, null);
   return {
     directory,
     comparison: input.comparison,

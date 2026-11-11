@@ -48,4 +48,11 @@ export class DiffCache {
     this.values.clear();
     this.bytes = 0;
   }
+  deleteWhere(matches: (key: string) => boolean) {
+    for (const [key, entry] of this.values)
+      if (matches(key)) {
+        this.values.delete(key);
+        this.bytes -= entry.weight;
+      }
+  }
 }

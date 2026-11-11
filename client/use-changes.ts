@@ -1,12 +1,13 @@
 import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
+import { mergeChangesView } from "../shared/changes-view";
 import {
   type ChangesSnapshot,
   type Comparison,
-  changesRpc,
+  changesViewRpc,
   type FileDiff,
-  fileDiffRpc,
+  fileDiffViewRpc,
 } from "../shared/contracts";
 import { DiffCache } from "../shared/diff-cache";
 
@@ -16,7 +17,7 @@ export function useChanges(
   automatic = true,
   refreshInterval = 2000,
 ) {
-  const call = useRpc(changesRpc);
+  const call = useRpc(changesViewRpc);
   const refresh = useRef<(() => void) | null>(null);
   const policyChanged = useRef<(() => void) | null>(null);
   const automaticRef = useRef(automatic);
@@ -36,6 +37,9 @@ export function useChanges(
     let fetching = false;
     let queuedRefresh = false;
     let failures = 0;
+    let incomplete = false;
+    let known: Record<string, string> = {};
+    let currentSnapshot: ChangesSnapshot | null = null;
     let active = AppState.currentState !== "background" && AppState.currentState !== "inactive";
     let timer: ReturnType<typeof setTimeout> | undefined;
     function cancelTimer() {
@@ -44,12 +48,12 @@ export function useChanges(
     }
     function schedule() {
       cancelTimer();
-      if (!stopped && automaticRef.current && active)
+      if (!stopped && (automaticRef.current || incomplete) && active)
         timer = setTimeout(
           () => {
             void load();
           },
-          Math.min(30000, intervalRef.current * 2 ** failures),
+          incomplete && !failures ? 120 : Math.min(30000, intervalRef.current * 2 ** failures),
         );
     }
     async function load(manual = false) {
@@ -62,20 +66,43 @@ export function useChanges(
       cancelTimer();
       if (manual) setState((previous) => ({ ...previous, refreshing: true }));
       try {
-        const snapshot = await call({ directory, comparison, force: manual });
+        const view = await call({
+          directory,
+          comparison,
+          force: manual,
+          progressive: true,
+          background: !manual,
+          known,
+        });
+        const snapshot = mergeChangesView(currentSnapshot, view);
+        known = view.repositoryVersions;
+        currentSnapshot = snapshot;
+        incomplete = Boolean(snapshot.pending);
         failures = 0;
         if (!stopped)
           setState((previous) => {
             // An unchanged poll must not rebuild thousands of rows or reset editor scrolling.
             const same = previous.key === key && previous.data?.version === snapshot.version;
-            if (same && !previous.error && !previous.loading && !previous.refreshing)
+            const samePending = Boolean(previous.data?.pending) === incomplete;
+            if (
+              same &&
+              samePending &&
+              !previous.error &&
+              !previous.loading &&
+              previous.refreshing === incomplete
+            )
               return previous;
             return {
               key,
-              data: same ? previous.data : snapshot,
+              data:
+                same && previous.data
+                  ? samePending
+                    ? previous.data
+                    : { ...previous.data, pending: snapshot.pending }
+                  : snapshot,
               error: null,
               loading: false,
-              refreshing: false,
+              refreshing: incomplete,
             };
           });
       } catch (error) {
@@ -101,12 +128,12 @@ export function useChanges(
     };
     policyChanged.current = () => {
       cancelTimer();
-      if (automaticRef.current && active) void load();
+      if ((automaticRef.current || incomplete) && active) void load();
     };
     const subscription = AppState.addEventListener("change", (next) => {
       active = next === "active";
       cancelTimer();
-      if (active && automaticRef.current) void load();
+      if (active && (automaticRef.current || incomplete)) void load();
     });
     // A panel opened while the host is inactive still needs its first snapshot,
     // including one-shot readers with automatic refresh disabled.
@@ -139,7 +166,7 @@ export function useFileDiff(
     ignoreWhitespace: boolean;
   } | null,
 ) {
-  const call = useRpc(fileDiffRpc);
+  const call = useRpc(fileDiffViewRpc);
   // Each retained Tab owns one current patch. Evicting its pane releases the cache.
   const [cache] = useState(() => new DiffCache(4 * 1024 * 1024, 1));
   const pending = useRef(new Map<string, Promise<FileDiff>>());
@@ -151,20 +178,42 @@ export function useFileDiff(
   const comparison = input?.comparison ?? "head";
   const context = input?.context ?? 3;
   const ignoreWhitespace = input?.ignoreWhitespace ?? false;
-  const [state, setState] = useState<{ key: string; data: FileDiff | null; error: string | null }>({
+  const identity = JSON.stringify([
+    directory,
+    repositoryId,
+    path,
+    comparison,
+    context,
+    ignoreWhitespace,
+  ]);
+  const [state, setState] = useState<{
+    key: string;
+    identity: string;
+    data: FileDiff | null;
+    error: string | null;
+    refreshing: boolean;
+  }>({
     key,
+    identity,
     data: null,
     error: null,
+    refreshing: Boolean(input),
   });
   useEffect(() => {
     if (!directory || !repositoryId || !path) return;
     let stopped = false;
     const cached = cache.get(key);
     if (cached) {
-      setState({ key, data: cached, error: null });
+      setState({ key, identity, data: cached, error: null, refreshing: false });
       return;
     }
-    setState({ key, data: null, error: null });
+    setState((previous) => ({
+      key,
+      identity,
+      data: previous.identity === identity ? previous.data : null,
+      error: null,
+      refreshing: true,
+    }));
     const pendingKey = JSON.stringify([key, attempt]);
     let request = pending.current.get(pendingKey);
     if (!request) {
@@ -182,15 +231,17 @@ export function useFileDiff(
     }
     void request.then(
       (data) => {
-        if (!stopped) setState({ key, data, error: null });
+        if (!stopped) setState({ key, identity, data, error: null, refreshing: false });
       },
       (error: unknown) => {
         if (!stopped)
-          setState({
+          setState((previous) => ({
             key,
-            data: null,
+            identity,
+            data: previous.identity === identity ? previous.data : null,
             error: error instanceof Error ? error.message : String(error),
-          });
+            refreshing: false,
+          }));
       },
     );
     return () => {
@@ -199,6 +250,7 @@ export function useFileDiff(
   }, [
     call,
     key,
+    identity,
     directory,
     repositoryId,
     path,
@@ -209,5 +261,16 @@ export function useFileDiff(
     attempt,
   ]);
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
-  return { ...(state.key === key ? state : { data: cache.get(key) ?? null, error: null }), retry };
+  return {
+    ...(input
+      ? state.key === key
+        ? state
+        : {
+            data: cache.get(key) ?? (state.identity === identity ? state.data : null),
+            error: null,
+            refreshing: true,
+          }
+      : { data: null, error: null, refreshing: false }),
+    retry,
+  };
 }
