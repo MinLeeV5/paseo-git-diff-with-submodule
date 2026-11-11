@@ -573,7 +573,7 @@ export function SettingsPanel({
             </Text>
             <Text
               testID="git-plugin-version"
-              ref={(node) => setWebTitle(node, `Git Diff with Submodules v${pluginVersion}`)}
+              ref={(node) => setWebTitle(node, `GitLens v${pluginVersion}`)}
               accessibilityLabel={`插件版本 ${pluginVersion}`}
               selectable
               style={{ color: c.foregroundMuted, fontSize: 11, fontVariant: ["tabular-nums"] }}

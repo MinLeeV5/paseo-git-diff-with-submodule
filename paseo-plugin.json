@@ -1,7 +1,7 @@
 {
   "id": "git-diff-with-submodule",
-  "name": "Git Diff with Submodules",
-  "description": "Review and commit Git changes, pull and push repositories, and browse commit graphs and historical diffs across nested submodules.",
+  "name": "GitLens",
+  "description": "Supercharge Git in Your Paseo",
   "icon": "assets/icon.png",
   "media": [
     "assets/git-diff.png",
@@ -11,8 +11,8 @@
   ],
   "translations": {
     "zh-CN": {
-      "name": "Git 差异 · 包含子模块",
-      "description": "递归查看主仓与 submodule 的 Git diff 和提交图，支持独立提交信息、自动生成、暂存、提交、拉取与推送。"
+      "name": "GitLens",
+      "description": "为 Paseo 提供更强大的 Git 能力。"
     }
   },
   "requirements": {
