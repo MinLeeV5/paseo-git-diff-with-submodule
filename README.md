@@ -18,7 +18,9 @@ Review Git changes, commit graphs, and historical diffs across a workspace and i
 paseo plugin install https://github.com/MinLeeV5/paseo-gitlens --ref main
 ```
 
-在目标 daemon 的 Settings → Plugins 中开启插件功能。进入任意 Git 工作区，打开 Command Center（⌘K / Ctrl+K），选择 **GitLens · 包含 Submodule**；也可以从工作区或 Explorer 添加 GitLens 面板。首次通过 Command Center 打开后，工作区顶部会出现「打开」按钮。
+在目标 daemon 的 Settings → Plugins 中开启插件功能。进入 Git 工作区，点击顶部的 GitCompare 图标（悬停提示「打开 GitLens」）即可直接打开面板；插件加载或重载后自动注册入口，无需先从 Command Center 打开。也可以打开 Command Center（⌘K / Ctrl+K），选择 **GitLens · 包含 Submodule**，或从工作区或 Explorer 添加 GitLens 面板。
+
+Paseo 0.15.4 的顶部最多直接显示 3 个插件按钮，窄屏最多 1 个，其余由宿主收入「更多操作」。当前插件 API 不支持固定排序；超过数量时，是否直接显示仍取决于宿主的按钮注册顺序。
 
 从源码开发时运行：
 
