@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { buildChangeRows, entryKey, folderKey } from "../client/changes-model";
+import {
+  buildChangeRows,
+  entryKey,
+  folderKey,
+  repositoryName,
+  resolveCollapsedRows,
+} from "../client/changes-model";
 import { repositorySchema } from "../shared/contracts";
 
 function repository(id: string, paths: { path: string; oldPath?: string }[]) {
@@ -25,6 +31,15 @@ function repository(id: string, paths: { path: string; oldPath?: string }[]) {
     })),
   });
 }
+
+it.each([
+  ["/work/easiclass-ai-grader-next", "", "easiclass-ai-grader-next"],
+  ["/work/easiclass-ai-grader-next/", "", "easiclass-ai-grader-next"],
+  ["C:\\work\\easiclass-ai-grader-next\\", "", "easiclass-ai-grader-next"],
+  ["/work/root/modules/client", "modules/client", "client"],
+])("uses the repository directory name for %s", (directory, relativePath, expected) => {
+  expect(repositoryName({ directory, relativePath })).toBe(expected);
+});
 
 it("keeps identical paths in different repositories independently selectable and collapsible", () => {
   const repos = [
@@ -59,4 +74,77 @@ it("keeps an explicit clean or unavailable repository state and never invents fi
     buildChangeRows([clean, unavailable], "", false, new Set()).map((row) => row.kind),
   ).toEqual(["repository", "actions", "notice", "repository", "notice"]);
   expect(buildChangeRows([clean, unavailable], "missing", false, new Set())).toEqual([]);
+});
+
+it("defaults clean repositories to collapsed even with sync counts, only in multi-repository workspaces", () => {
+  const clean = { ...repository(".", []), aheadCount: 3, behindCount: 2 };
+  const changed = repository("child", [{ path: "src/index.ts" }]);
+  const unavailable = { ...repository("missing", []), state: "uninitialized" as const };
+  const error = { ...repository("failed", []), state: "error" as const, error: "Scan failed" };
+  const repos = [clean, changed, unavailable, error];
+  const collapsed = resolveCollapsedRows(repos, new Map());
+
+  expect(resolveCollapsedRows([clean], new Map()).size).toBe(0);
+  expect([...collapsed]).toEqual(["repo:."]);
+  const rows = buildChangeRows(repos, "", false, collapsed);
+  expect(rows.filter((row) => row.repository.id === ".").map((row) => row.kind)).toEqual([
+    "repository",
+  ]);
+  expect(rows.some((row) => row.kind === "file" && row.repository.id === "child")).toBe(true);
+  expect(rows.filter((row) => row.kind === "notice").map((row) => row.repository.id)).toEqual([
+    "missing",
+    "failed",
+  ]);
+});
+
+it("updates default collapse when changes appear or disappear while preserving manual choices", () => {
+  const clean = repository("child", []);
+  const changed = repository("child", [{ path: "src/index.ts" }]);
+  const parent = repository(".", [{ path: "README.md" }]);
+  const overrides = new Map<string, boolean>();
+
+  expect(resolveCollapsedRows([parent, changed], overrides).has("repo:child")).toBe(false);
+  expect(resolveCollapsedRows([parent, clean], overrides).has("repo:child")).toBe(true);
+  expect(resolveCollapsedRows([parent, changed], overrides).has("repo:child")).toBe(false);
+
+  overrides.set("repo:child", false);
+  const expanded = resolveCollapsedRows([parent, clean], overrides);
+  expect(expanded.has("repo:child")).toBe(false);
+  expect(
+    buildChangeRows([parent, clean], "", false, expanded)
+      .filter((row) => row.repository.id === "child")
+      .map((row) => row.kind),
+  ).toEqual(["repository", "actions", "notice"]);
+
+  overrides.set("repo:child", true);
+  overrides.set(folderKey(".", "src"), true);
+  const collapsed = resolveCollapsedRows([parent, changed], overrides);
+  expect(collapsed.has("repo:child")).toBe(true);
+  expect(collapsed.has(folderKey(".", "src"))).toBe(true);
+});
+
+it("allows expanding all clean repositories and revealing a filtered clean repository", () => {
+  const repos = [repository(".", []), repository("child", [])];
+  const collapsed = resolveCollapsedRows(repos, new Map());
+  expect(buildChangeRows(repos, "", false, collapsed).map((row) => row.kind)).toEqual([
+    "repository",
+    "repository",
+  ]);
+  expect(buildChangeRows(repos, "child", false, collapsed).map((row) => row.kind)).toEqual([
+    "repository",
+    "actions",
+    "notice",
+  ]);
+  const expanded = resolveCollapsedRows(
+    repos,
+    new Map(repos.map((repo) => [`repo:${repo.id}`, false])),
+  );
+  expect(buildChangeRows(repos, "", false, expanded).map((row) => row.kind)).toEqual([
+    "repository",
+    "actions",
+    "notice",
+    "repository",
+    "actions",
+    "notice",
+  ]);
 });

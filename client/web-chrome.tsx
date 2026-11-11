@@ -424,7 +424,7 @@ export function DiffResizer({
         position: "absolute",
         top: 0,
         bottom: 0,
-        left: `${ratio * 100}%`,
+        left: width * ratio,
         width: 7,
         marginLeft: -3,
         zIndex: 4,

@@ -29,6 +29,7 @@ export function TabEditor({
   navigation,
   previewNavigation,
   onNavigate,
+  onHunkChange,
   onStats,
   onSplitRatioChange,
   onSplitRatioCommit,
@@ -50,6 +51,7 @@ export function TabEditor({
   navigation: { index: number; request: number };
   previewNavigation?: { fragment: string; request: number };
   onNavigate(href: string): void;
+  onHunkChange(index: number): void;
   onStats(key: string, stats: TabStats): void;
   onSplitRatioChange(ratio: number): void;
   onSplitRatioCommit(): void;
@@ -136,6 +138,7 @@ export function TabEditor({
         tabSize={settings.tabSize}
         lineNumbers={settings.lineNumbers}
         navigation={navigation}
+        onHunkChange={onHunkChange}
         from={from}
         to={to}
       />

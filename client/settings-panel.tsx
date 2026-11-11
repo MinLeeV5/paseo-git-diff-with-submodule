@@ -5,9 +5,10 @@ import type { PanelSettings } from "../shared/settings";
 import { MAX_CACHED_TABS } from "../shared/tab-cache";
 import { pluginVersion } from "../shared/version";
 import { InputField, setWebTitle, ToolButton } from "./controls";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 import { SettingsSelect } from "./settings-select";
 import { codeFont, panelTokens } from "./theme";
+import { workspaceViews } from "./workspace-views";
 
 const settingsTabs = [
   { id: "appearance", label: "外观", icon: "sidebar" },
@@ -111,7 +112,7 @@ export function SettingsPanel({
   function segmented<K extends keyof PanelSettings>(
     key: K,
     label: string,
-    options: { value: PanelSettings[K]; label: string }[],
+    options: readonly { value: PanelSettings[K]; label: string; icon?: IconName }[],
   ) {
     return (
       <View style={{ gap: 7, paddingVertical: 9 }}>
@@ -142,13 +143,22 @@ export function SettingsPanel({
                   minWidth: 0,
                   minHeight: 32,
                   paddingHorizontal: 7,
+                  flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
+                  gap: 6,
                   backgroundColor: selected ? c.selection : c.surface0,
                   borderRightWidth: index < options.length - 1 ? 1 : 0,
                   borderRightColor: c.border,
                 }}
               >
+                {option.icon ? (
+                  <Icon
+                    name={option.icon}
+                    color={selected ? c.foreground : c.foregroundMuted}
+                    size={14}
+                  />
+                ) : null}
                 <Text
                   numberOfLines={1}
                   style={{
@@ -331,6 +341,7 @@ export function SettingsPanel({
                   { value: false, label: "列表" },
                   { value: true, label: "目录树" },
                 ])}
+                <Text style={hintStyle}>同时应用于变更文件和提交图中的文件列表。</Text>
                 {segmented("scrollbar", "滚动条", [
                   { value: "thin", label: "纤细" },
                   { value: "auto", label: "系统" },
@@ -479,7 +490,10 @@ export function SettingsPanel({
               </>
             ) : (
               <>
-                {section("标签缓存", true)}
+                {section("打开面板", true)}
+                {segmented("defaultView", "默认进入", workspaceViews)}
+                <Text style={hintStyle}>下次打开 Git 面板时生效。</Text>
+                {section("标签缓存")}
                 {select(
                   "tabCacheSize",
                   "缓存标签数量",

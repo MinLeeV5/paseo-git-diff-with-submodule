@@ -40,6 +40,8 @@ import {
   type ChangeRow,
   comparisons,
   entryKey,
+  repositoryName,
+  resolveCollapsedRows,
   statusLabels,
 } from "./changes-model";
 import { InputField, setWebTitle, ToolButton } from "./controls";
@@ -54,7 +56,7 @@ import { RepositoryControls } from "./repository-controls";
 import { SettingsPanel } from "./settings-panel";
 import { TabCache } from "./tab-cache";
 import { TabEditor } from "./tab-editor";
-import { panelTokens } from "./theme";
+import { mixColor, panelTokens } from "./theme";
 import { useChanges } from "./use-changes";
 import { briefError, repositoryLabel, useMessage } from "./use-message";
 import { usePanelSettings } from "./use-panel-settings";
@@ -103,7 +105,6 @@ const ChangeItem = memo(function ChangeItem({
   item,
   styles,
   theme,
-  name,
   tree,
   compact,
   active,
@@ -119,7 +120,6 @@ const ChangeItem = memo(function ChangeItem({
   item: ChangeRow;
   styles: Styles;
   theme: PluginTheme;
-  name: string;
   tree: boolean;
   compact: boolean;
   active: boolean;
@@ -138,7 +138,7 @@ const ChangeItem = memo(function ChangeItem({
   const rowFeedback = [
     hovered && styles.hoveredRow,
     active && styles.selectedRow,
-    focused && styles.focusedRow,
+    focused && item.kind !== "repository" && styles.focusedRow,
   ];
   if (item.kind === "notice")
     return (
@@ -165,18 +165,31 @@ const ChangeItem = memo(function ChangeItem({
         repository.recordedHead !== repository.head &&
         repository.state === "ready",
     );
-    const label = repository.id === "." ? name : basename(repository.relativePath);
+    const label = displayPath(repositoryName(repository));
+    const syncCounts = collapsed
+      ? (
+          [
+            { icon: "pull", count: repository.behindCount, label: "待拉取" },
+            { icon: "push", count: repository.aheadCount, label: "待推送" },
+          ] as const
+        ).filter(({ count }) => count !== null && count > 0)
+      : [];
+    const syncLabel = syncCounts.map(({ count, label }) => `${count} 个${label}提交`).join("，");
+    const title = `${repository.directory}\nHEAD ${repository.head ?? "尚无提交"}${drift ? `\n父仓记录 ${repository.recordedHead} → 当前 ${repository.head}` : ""}${syncLabel ? `\n${syncLabel}` : ""}`;
     return (
       <Pressable
-        ref={(node) =>
-          setWebTitle(node, `${repository.directory}\nHEAD ${repository.head ?? "尚无提交"}`)
-        }
+        ref={(node) => {
+          setWebTitle(node, title);
+          // The card provides the focus ring, including all of its virtualized rows.
+          if (Platform.OS === "web" && node)
+            (node as unknown as { style: { outlineStyle: string } }).style.outlineStyle = "none";
+        }}
         accessibilityRole="button"
-        accessibilityLabel={`${collapsed ? "展开" : "收起"}仓库 ${repository.relativePath || name}`}
+        accessibilityLabel={`${collapsed ? "展开" : "收起"}仓库 ${repository.relativePath || label}${syncLabel ? `，${syncLabel}` : ""}`}
         accessibilityState={{ expanded: !collapsed }}
         {...(Platform.OS === "web"
           ? {
-              title: `${repository.directory}\nHEAD ${repository.head ?? "尚无提交"}${drift ? `\n父仓记录 ${repository.recordedHead} → 当前 ${repository.head}` : ""}`,
+              title,
               "aria-expanded": !collapsed,
             }
           : {})}
@@ -185,32 +198,49 @@ const ChangeItem = memo(function ChangeItem({
         onHoverOut={() => setHovered(false)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        style={[styles.repository, ...rowFeedback]}
+        style={[styles.repository, !collapsed && styles.repositoryExpanded, ...rowFeedback]}
       >
         <Icon
           name={collapsed ? "chevronRight" : "chevronDown"}
           size={12}
           color={theme.colors.foregroundMuted}
         />
-        <Icon name="repository" color={theme.colors.foregroundMuted} />
-        <View style={[styles.fileName, styles.inline]}>
-          <Text numberOfLines={1} style={[styles.repositoryTitle, { flexShrink: 1 }]}>
-            {label}
-          </Text>
+        <Icon
+          name={repository.parentId === null ? "repository" : "submodule"}
+          color={theme.colors.foregroundMuted}
+        />
+        <View style={styles.repositoryIdentity}>
+          <View style={styles.repositoryTitleRow}>
+            <Text numberOfLines={1} style={[styles.repositoryTitle, styles.fileName]}>
+              {label}
+            </Text>
+            {drift ? (
+              <View accessibilityLabel="子模块提交指针已变化" style={styles.pointerBadge}>
+                <Icon name="pointer" size={12} color={theme.colors.statusWarning} />
+              </View>
+            ) : null}
+            <Text style={styles.count}>{item.count}</Text>
+          </View>
           <View style={styles.branchLine}>
             <Icon name="branch" size={11} color={theme.colors.foregroundMuted} />
-            <Text numberOfLines={1} style={styles.small}>
+            <Text numberOfLines={1} style={[styles.small, styles.fileName]}>
               {repository.branch ?? (repository.head ? repository.head.slice(0, 8) : "尚无提交")}
-              {repository.parentId !== null ? " · 子模块" : ""}
             </Text>
+            <Text style={styles.repositoryKind}>
+              {repository.parentId !== null ? "子模块" : "主仓库"}
+            </Text>
+            {syncCounts.map(({ icon, count, label }) => (
+              <View
+                key={icon}
+                ref={(node) => setWebTitle(node, `${count} 个${label}提交`)}
+                style={styles.syncCount}
+              >
+                <Icon name={icon} size={12} color={theme.colors.foregroundMuted} />
+                <Text style={styles.small}>{count}</Text>
+              </View>
+            ))}
           </View>
         </View>
-        {drift ? (
-          <View accessibilityLabel="子模块提交指针已变化" style={styles.pointerBadge}>
-            <Icon name="pointer" size={12} color={theme.colors.statusWarning} />
-          </View>
-        ) : null}
-        <Text style={styles.count}>{item.count}</Text>
       </Pressable>
     );
   }
@@ -348,31 +378,16 @@ const ChangeItem = memo(function ChangeItem({
   );
 });
 
-export function WorkspaceChanges(props: {
+type WorkspaceChangesProps = {
   workspaceId?: string;
   directory: string;
   name: string;
   theme: PluginTheme;
   compact: boolean;
-}) {
+};
+
+export function WorkspaceChanges(props: WorkspaceChangesProps) {
   const preferences = usePanelSettings();
-  const [view, setView] = useState<WorkspaceView>("changes");
-  const [historyOpened, setHistoryOpened] = useState(false);
-  const changesButton = useRef<View>(null);
-  const historyButton = useRef<View>(null);
-  useEffect(() => {
-    if (!historyOpened) return;
-    // Wait for the closing modal to release focus before focusing the visible view.
-    const timer = setTimeout(
-      () => (view === "changes" ? changesButton : historyButton).current?.focus(),
-      0,
-    );
-    return () => clearTimeout(timer);
-  }, [view, historyOpened]);
-  function switchView(next: WorkspaceView) {
-    if (next === "history") setHistoryOpened(true);
-    setView(next);
-  }
   if (!preferences.loaded)
     return (
       <View
@@ -400,6 +415,30 @@ export function WorkspaceChanges(props: {
         )}
       </View>
     );
+  return <WorkspaceViews {...props} preferences={preferences} />;
+}
+
+function WorkspaceViews({
+  preferences,
+  ...props
+}: WorkspaceChangesProps & { preferences: ReturnType<typeof usePanelSettings> }) {
+  const [view, setView] = useState<WorkspaceView>(preferences.values.defaultView);
+  const [historyOpened, setHistoryOpened] = useState(view === "history");
+  const changesButton = useRef<View>(null);
+  const historyButton = useRef<View>(null);
+  useEffect(() => {
+    if (!historyOpened) return;
+    // Wait for the closing modal to release focus before focusing the visible view.
+    const timer = setTimeout(
+      () => (view === "changes" ? changesButton : historyButton).current?.focus(),
+      0,
+    );
+    return () => clearTimeout(timer);
+  }, [view, historyOpened]);
+  function switchView(next: WorkspaceView) {
+    if (next === "history") setHistoryOpened(true);
+    setView(next);
+  }
   const c = panelTokens(props.theme);
   return (
     <View style={{ flex: 1, minWidth: 0, minHeight: 0, backgroundColor: c.surface0 }}>
@@ -424,6 +463,7 @@ export function WorkspaceChanges(props: {
             <HistoryPanel
               {...props}
               preferences={preferences}
+              active={view === "history"}
               viewSwitcher={
                 <ViewSwitcher
                   value="history"
@@ -489,7 +529,7 @@ function WorkspaceEditor({
   const { comparison, tree, automatic, mode, context, ignoreWhitespace } = settings;
   const [filter, setFilter] = useState("");
   const query = useDeferredValue(filter.trim().toLocaleLowerCase());
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(() => new Map());
   const [tabs, setTabs] = useState<TabsState>({ tabs: [], active: null });
   const [linkedFiles, setLinkedFiles] = useState<
     Record<string, { repositoryId: string; path: string; version: string }>
@@ -501,6 +541,7 @@ function WorkspaceEditor({
   } | null>(null);
   const navigationRequest = useRef(0);
   const [focusedFile, setFocusedFile] = useState<string | null>(null);
+  const [focusedRepository, setFocusedRepository] = useState<string | null>(null);
   const initialized = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [previews, setPreviews] = useState<Record<string, boolean>>({});
@@ -566,6 +607,10 @@ function WorkspaceEditor({
   const changes = useChanges(directory, comparison, automatic && active, settings.refreshInterval);
   const repositoryActions = useRepositoryActions(directory, changes.refresh, workspaceId);
   const repositories = changes.data?.repositories;
+  const collapsed = useMemo(
+    () => resolveCollapsedRows(repositories ?? [], collapseOverrides),
+    [repositories, collapseOverrides],
+  );
   const model = useMemo(() => {
     const repos = repositories ?? [];
     const entries = repos.flatMap((repository) =>
@@ -644,6 +689,7 @@ function WorkspaceEditor({
         }
       : undefined);
   const currentTab = tabs.tabs.find((tab) => tab.key === tabs.active);
+  const activeRepositoryId = focusedRepository ?? currentTab?.repositoryId;
   const kind = selected ? (previewKind(selected.file.path) ?? (linked ? "code" : null)) : null;
   const preview = Boolean(
     kind && selectedKey && (linked || (previews[selectedKey] ?? settings.previewDefault)),
@@ -676,13 +722,12 @@ function WorkspaceEditor({
   const fileIndex = visibleFiles.findIndex((row) => row.key === (focusedFile ?? selectedKey));
   const toggle = useCallback(
     (key: string) =>
-      setCollapsed((previous) => {
-        const next = new Set(previous);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
+      setCollapseOverrides((previous) => {
+        const next = new Map(previous);
+        next.set(key, !(previous.get(key) ?? collapsed.has(key)));
         return next;
       }),
-    [],
+    [collapsed],
   );
   const selectFile = useCallback(
     (repositoryId: string, path: string) => {
@@ -844,45 +889,68 @@ function WorkspaceEditor({
     [directory, model.lookup, repositoryActions.run],
   );
   const renderRow = useCallback(
-    ({ item }: { item: ChangeRow }) =>
-      item.kind === "actions" ? (
-        <RepositoryControls
-          directory={directory}
-          repository={item.repository}
-          draft={repositoryActions.drafts[item.repository.id] ?? ""}
-          state={repositoryActions.states[item.repository.id]}
-          theme={theme}
-          onDraft={repositoryActions.setDraft}
-          onRun={repositoryActions.run}
-          onGenerate={repositoryActions.generateMessage}
-          onClear={repositoryActions.clearMessage}
-        />
+    ({ item, index }: { item: ChangeRow; index: number }) => {
+      const row = (
+        <View
+          testID={`git-change-row-${item.key}`}
+          onFocus={() => setFocusedRepository(item.repository.id)}
+          onBlur={() =>
+            setFocusedRepository((previous) => (previous === item.repository.id ? null : previous))
+          }
+          style={[
+            styles.repositoryCardRow,
+            item.kind === "repository" && styles.repositoryCardTop,
+            model.rows[index + 1]?.repository.id !== item.repository.id &&
+              styles.repositoryCardBottom,
+            item.repository.id === activeRepositoryId && styles.repositoryCardActive,
+          ]}
+        >
+          {item.kind === "actions" ? (
+            <RepositoryControls
+              directory={directory}
+              repository={item.repository}
+              draft={repositoryActions.drafts[item.repository.id] ?? ""}
+              state={repositoryActions.states[item.repository.id]}
+              theme={theme}
+              onDraft={repositoryActions.setDraft}
+              onRun={repositoryActions.run}
+              onGenerate={repositoryActions.generateMessage}
+              onClear={repositoryActions.clearMessage}
+            />
+          ) : (
+            <ChangeItem
+              item={item}
+              styles={styles}
+              theme={theme}
+              tree={tree}
+              compact={compact}
+              active={item.key === selectedKey}
+              collapsed={!query && collapsed.has(item.key)}
+              busy={Boolean(repositoryActions.states[item.repository.id]?.busy)}
+              onToggle={toggle}
+              onSelect={selectFile}
+              onFileAction={runFileAction}
+              onRegister={registerRow}
+              onFocusFile={setFocusedFile}
+              onContextMenu={setMenu}
+            />
+          )}
+        </View>
+      );
+      return item.kind === "repository" ? (
+        <View style={styles.repositoryHeaderBackdrop}>{row}</View>
       ) : (
-        <ChangeItem
-          item={item}
-          styles={styles}
-          theme={theme}
-          name={name}
-          tree={tree}
-          compact={compact}
-          active={item.key === selectedKey}
-          collapsed={!query && collapsed.has(item.key)}
-          busy={Boolean(repositoryActions.states[item.repository.id]?.busy)}
-          onToggle={toggle}
-          onSelect={selectFile}
-          onFileAction={runFileAction}
-          onRegister={registerRow}
-          onFocusFile={setFocusedFile}
-          onContextMenu={setMenu}
-        />
-      ),
+        row
+      );
+    },
     [
       styles,
       theme,
-      name,
+      model.rows,
       tree,
       compact,
       selectedKey,
+      activeRepositoryId,
       query,
       collapsed,
       toggle,
@@ -1171,12 +1239,11 @@ function WorkspaceEditor({
                 theme={theme}
                 label="折叠或展开全部仓库"
                 icon="collapse"
-                onPress={() =>
-                  setCollapsed((previous) => {
-                    const keys = (repositories ?? []).map((repo) => `repo:${repo.id}`);
-                    return keys.every((key) => previous.has(key)) ? new Set() : new Set(keys);
-                  })
-                }
+                onPress={() => {
+                  const keys = (repositories ?? []).map((repo) => `repo:${repo.id}`);
+                  const collapse = !keys.every((key) => collapsed.has(key));
+                  setCollapseOverrides(new Map(keys.map((key) => [key, collapse])));
+                }}
               />
               <ToolButton
                 theme={theme}
@@ -1268,6 +1335,7 @@ function WorkspaceEditor({
                 testID="git-file-list"
                 ref={listRef}
                 style={styles.list}
+                contentContainerStyle={styles.listContent}
                 data={model.rows}
                 stickyHeaderIndices={repositoryHeaders}
                 stickyHeaderHiddenOnScroll={false}
@@ -1371,7 +1439,7 @@ function WorkspaceEditor({
                     : {})}
                 >
                   <Icon
-                    name={selected.repository.parentId ? "repository" : "file"}
+                    name={selected.repository.parentId ? "submodule" : "file"}
                     size={12}
                     color={colors.foregroundMuted}
                   />
@@ -1472,6 +1540,12 @@ function WorkspaceEditor({
                 theme={theme}
                 mode={effectiveMode}
                 navigation={hunkTarget}
+                onHunkChange={(index) =>
+                  setHunkPositions((previous) => ({
+                    ...previous,
+                    [selectedKey]: { view: viewKey, index, request: hunkRequest },
+                  }))
+                }
                 previewNavigation={
                   previewNavigation?.key === selectedKey ? previewNavigation : undefined
                 }
@@ -1608,6 +1682,7 @@ function WorkspaceEditor({
 
 function makeStyles(theme: PluginTheme) {
   const c = panelTokens(theme);
+  const cardBorder = mixColor(c.foreground, c.border, 0.1);
   return StyleSheet.create({
     root: { flex: 1, minHeight: 0, minWidth: 0, backgroundColor: c.surface0 },
     body: { flex: 1, minHeight: 0, flexDirection: "row" },
@@ -1680,21 +1755,55 @@ function makeStyles(theme: PluginTheme) {
     },
     sectionTitle: { color: c.foregroundMuted, fontSize: 11 },
     list: { flex: 1, minHeight: 0 },
+    listContent: { paddingBottom: 8 },
+    repositoryHeaderBackdrop: { paddingTop: 8, backgroundColor: c.surface1 },
+    repositoryCardRow: {
+      marginHorizontal: 8,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderColor: cardBorder,
+      backgroundColor: c.surface0,
+    },
+    repositoryCardTop: {
+      borderTopWidth: 1,
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      overflow: "hidden",
+    },
+    repositoryCardBottom: {
+      borderBottomWidth: 1,
+      borderBottomLeftRadius: 8,
+      borderBottomRightRadius: 8,
+      overflow: "hidden",
+    },
+    repositoryCardActive: { borderColor: c.accent },
     repository: {
-      minHeight: 34,
-      paddingVertical: 4,
-      paddingLeft: 8,
-      paddingRight: 13,
+      minHeight: 56,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
       gap: 6,
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
       borderColor: "transparent",
-      backgroundColor: c.surface1,
-      borderBottomColor: c.border,
+      backgroundColor: mixColor(c.foreground, c.surface0, 0.035),
     },
+    repositoryExpanded: { borderBottomColor: c.border },
+    repositoryIdentity: { flex: 1, minWidth: 0, gap: 3 },
+    repositoryTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     repositoryTitle: { color: c.foreground, fontSize: 12, fontWeight: "600", lineHeight: 17 },
     branchLine: { flexDirection: "row", alignItems: "center", gap: 4 },
+    repositoryKind: { color: c.foregroundMuted, fontSize: 9, lineHeight: 16 },
+    syncCount: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      flexShrink: 0,
+      paddingHorizontal: 3,
+      paddingVertical: 1,
+      borderRadius: 4,
+      backgroundColor: c.surface2,
+    },
     fileName: { flex: 1, minWidth: 0 },
     file: {
       minHeight: 28,
@@ -1728,7 +1837,13 @@ function makeStyles(theme: PluginTheme) {
     focusedRow: { borderColor: c.accent },
     partialMarker: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.foregroundMuted },
     pointerBadge: { padding: 3, borderRadius: 3, backgroundColor: c.surface2 },
-    notice: { flexDirection: "row", gap: 7, paddingLeft: 31, paddingRight: 14, paddingVertical: 8 },
+    notice: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
     railSummary: {
       minHeight: 30,
       paddingHorizontal: 13,

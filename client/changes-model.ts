@@ -22,6 +22,16 @@ export const comparisons: {
   { value: "unstaged", label: "未暂存", from: "暂存区", to: "工作目录", group: "更改" },
 ];
 export type FileEntry = { repository: RepositorySnapshot; file: FileChange };
+export type FileRow =
+  | {
+      key: string;
+      kind: "folder";
+      path: string;
+      label: string;
+      depth: number;
+      count: number;
+    }
+  | { key: string; kind: "file"; file: FileChange; depth: number };
 export type ChangeRow =
   | {
       key: string;
@@ -29,22 +39,34 @@ export type ChangeRow =
       repository: RepositorySnapshot;
       count: number;
     }
-  | {
-      key: string;
-      kind: "folder";
-      repository: RepositorySnapshot;
-      path: string;
-      label: string;
-      depth: number;
-      count: number;
-    }
-  | { key: string; kind: "file"; repository: RepositorySnapshot; file: FileChange; depth: number };
+  | (FileRow & { repository: RepositorySnapshot });
 
 export function entryKey(repositoryId: string, path: string) {
   return JSON.stringify([repositoryId, path]);
 }
 export function folderKey(repositoryId: string, path: string) {
   return `folder:${entryKey(repositoryId, path)}`;
+}
+
+export function repositoryName(repository: Pick<RepositorySnapshot, "directory" | "relativePath">) {
+  const path = (repository.relativePath || repository.directory).replace(/[\\/]+$/, "");
+  return path.split(/[\\/]/).at(-1) || path;
+}
+
+export function resolveCollapsedRows(
+  repositories: readonly RepositorySnapshot[],
+  overrides: ReadonlyMap<string, boolean>,
+): Set<string> {
+  const collapsed = new Set<string>();
+  if (repositories.length > 1)
+    for (const repository of repositories)
+      if (repository.state === "ready" && repository.files.length === 0)
+        collapsed.add(`repo:${repository.id}`);
+  for (const [key, value] of overrides) {
+    if (value) collapsed.add(key);
+    else collapsed.delete(key);
+  }
+  return collapsed;
 }
 
 export function buildChangeRows(
@@ -77,70 +99,66 @@ export function buildChangeRows(
       rows.push({ key: `notice:${repository.id}`, kind: "notice", repository, count: 0 });
       continue;
     }
-    if (!tree) {
-      rows.push(
-        ...files.map(
-          (file): ChangeRow => ({
-            key: entryKey(repository.id, file.path),
-            kind: "file",
-            repository,
-            file,
-            depth: 0,
-          }),
-        ),
-      );
-      continue;
-    }
-    type Folder = {
-      path: string;
-      folders: Map<string, Folder>;
-      files: FileChange[];
-      count: number;
-    };
-    const root: Folder = { path: "", folders: new Map(), files: [], count: files.length };
-    for (const file of files) {
-      let folder = root;
-      const segments = file.path.split("/").slice(0, -1);
-      for (const segment of segments) {
-        let child = folder.folders.get(segment);
-        if (!child) {
-          child = {
-            path: folder.path ? `${folder.path}/${segment}` : segment,
-            folders: new Map(),
-            files: [],
-            count: 0,
-          };
-          folder.folders.set(segment, child);
-        }
-        child.count++;
-        folder = child;
-      }
-      folder.files.push(file);
-    }
-    function visit(folder: Folder, depth: number) {
-      for (const [label, child] of [...folder.folders].sort(([a], [b]) => a.localeCompare(b))) {
-        const key = folderKey(repository.id, child.path);
-        rows.push({
-          key,
-          kind: "folder",
-          repository,
-          path: child.path,
-          label,
-          depth,
-          count: child.count,
-        });
-        if (query || !collapsed.has(key)) visit(child, depth + 1);
-      }
-      for (const file of folder.files)
-        rows.push({
-          key: entryKey(repository.id, file.path),
-          kind: "file",
-          repository,
-          file,
-          depth,
-        });
-    }
-    visit(root, 0);
+    rows.push(
+      ...buildFileRows(repository.id, files, tree, collapsed, Boolean(query)).map((row) => ({
+        ...row,
+        repository,
+      })),
+    );
   }
+  return rows;
+}
+
+export function buildFileRows(
+  scope: string,
+  files: readonly FileChange[],
+  tree: boolean,
+  collapsed: ReadonlySet<string>,
+  expandAll = false,
+): FileRow[] {
+  if (!tree)
+    return files.map((file) => ({
+      key: entryKey(scope, file.path),
+      kind: "file",
+      file,
+      depth: 0,
+    }));
+  type Folder = {
+    path: string;
+    folders: Map<string, Folder>;
+    files: FileChange[];
+    count: number;
+  };
+  const root: Folder = { path: "", folders: new Map(), files: [], count: files.length };
+  for (const file of files) {
+    let folder = root;
+    const segments = file.path.split("/").slice(0, -1);
+    for (const segment of segments) {
+      let child = folder.folders.get(segment);
+      if (!child) {
+        child = {
+          path: folder.path ? `${folder.path}/${segment}` : segment,
+          folders: new Map(),
+          files: [],
+          count: 0,
+        };
+        folder.folders.set(segment, child);
+      }
+      child.count++;
+      folder = child;
+    }
+    folder.files.push(file);
+  }
+  const rows: FileRow[] = [];
+  function visit(folder: Folder, depth: number) {
+    for (const [label, child] of [...folder.folders].sort(([a], [b]) => a.localeCompare(b))) {
+      const key = folderKey(scope, child.path);
+      rows.push({ key, kind: "folder", path: child.path, label, depth, count: child.count });
+      if (expandAll || !collapsed.has(key)) visit(child, depth + 1);
+    }
+    for (const file of folder.files)
+      rows.push({ key: entryKey(scope, file.path), kind: "file", file, depth });
+  }
+  visit(root, 0);
   return rows;
 }

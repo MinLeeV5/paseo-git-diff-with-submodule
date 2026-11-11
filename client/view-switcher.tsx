@@ -4,12 +4,9 @@ import { Modal, Platform, Pressable, Text, useWindowDimensions, View } from "rea
 import { setWebTitle } from "./controls";
 import { Icon } from "./icons";
 import { panelTokens } from "./theme";
+import { workspaceViews as views, type WorkspaceView } from "./workspace-views";
 
-const views = [
-  { value: "changes", label: "更改", icon: "source" },
-  { value: "history", label: "提交图", icon: "branch" },
-] as const;
-export type WorkspaceView = (typeof views)[number]["value"];
+export type { WorkspaceView } from "./workspace-views";
 
 export function ViewSwitcher({
   value,

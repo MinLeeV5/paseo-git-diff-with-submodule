@@ -34,6 +34,7 @@ export function HistoryPanel({
   theme,
   compact: hostCompact,
   preferences,
+  active,
   viewSwitcher,
 }: {
   directory: string;
@@ -41,6 +42,7 @@ export function HistoryPanel({
   theme: PluginTheme;
   compact: boolean;
   preferences: ReturnType<typeof usePanelSettings>;
+  active: boolean;
   viewSwitcher: ReactNode;
 }) {
   const c = panelTokens(theme);
@@ -56,6 +58,11 @@ export function HistoryPanel({
   const [expanded, setExpanded] = useState(false);
   const [file, setFile] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const panelRef = useRef<View>(null);
+  useEffect(() => {
+    // Opening a file hides its focused row. Keep keyboard events inside the panel.
+    if (active && file) panelRef.current?.focus();
+  }, [active, file]);
   const message = useMessage();
   const scopeKey = JSON.stringify([directory, repositoryId, reference]);
   const selected = selection?.key === scopeKey ? selection.oid : null;
@@ -153,6 +160,10 @@ export function HistoryPanel({
     repositories.refresh();
     history.refresh();
   }
+  function backToFiles() {
+    setFile(null);
+    panelRef.current?.focus();
+  }
   function onKeyDown(event: {
     key: string;
     metaKey?: boolean;
@@ -162,6 +173,7 @@ export function HistoryPanel({
     preventDefault(): void;
     stopPropagation(): void;
   }) {
+    if (!active || showSettings) return;
     if (event.target?.closest?.('[role="menu"]')) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
       event.preventDefault();
@@ -170,12 +182,14 @@ export function HistoryPanel({
       return;
     }
     if (event.key === "Escape") {
-      if (file) setFile(null);
+      if (file) backToFiles();
       else if (filter) setFilter("");
       else if (showDetails) {
         setDetailsOpen(false);
         setExpanded(false);
-      }
+      } else return;
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
     if (["INPUT", "TEXTAREA", "SELECT"].includes(event.target?.tagName ?? "")) return;
@@ -231,12 +245,13 @@ export function HistoryPanel({
   );
   return (
     <View
+      ref={panelRef}
       testID="git-history-panel"
       style={{ flex: 1, minWidth: 0, minHeight: 0, backgroundColor: c.surface0 }}
       onLayout={(event) =>
         setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })
       }
-      {...(Platform.OS === "web" ? { onKeyDownCapture: onKeyDown } : {})}
+      {...(Platform.OS === "web" ? { onKeyDownCapture: onKeyDown, tabIndex: -1 } : {})}
     >
       <ScrollbarStyle theme={theme} thin={preferences.values.scrollbar === "thin"} />
       {showSettings ? (
@@ -631,30 +646,36 @@ export function HistoryPanel({
                 retry={detail.retry}
               />
             ) : detail.data ? (
-              file ? (
-                <CommitDiff
-                  key={`${selected}:${file}`}
-                  directory={directory}
-                  repositoryId={repositoryId}
-                  commit={detail.data}
-                  path={file}
-                  theme={theme}
-                  width={size.width}
-                  preferences={preferences}
-                  onBack={() => setFile(null)}
-                />
-              ) : (
-                <CommitSummary
-                  commit={detail.data}
-                  theme={theme}
-                  compact={compact}
-                  onOpenFile={setFile}
-                  onSelectParent={(oid) => {
-                    selectCommit(oid);
-                    scrollTo(graph.rows.findIndex((row) => row.commit.oid === oid));
-                  }}
-                />
-              )
+              <>
+                <View style={{ flex: 1, minHeight: 0, display: file ? "none" : "flex" }}>
+                  <CommitSummary
+                    key={`${repositoryId}:${selected}`}
+                    commit={detail.data}
+                    theme={theme}
+                    compact={compact}
+                    tree={preferences.values.tree}
+                    onTreeChange={(tree) => preferences.update({ tree })}
+                    onOpenFile={setFile}
+                    onSelectParent={(oid) => {
+                      selectCommit(oid);
+                      scrollTo(graph.rows.findIndex((row) => row.commit.oid === oid));
+                    }}
+                  />
+                </View>
+                {file ? (
+                  <CommitDiff
+                    key={`${selected}:${file}`}
+                    directory={directory}
+                    repositoryId={repositoryId}
+                    commit={detail.data}
+                    path={file}
+                    theme={theme}
+                    width={size.width}
+                    preferences={preferences}
+                    onBack={backToFiles}
+                  />
+                ) : null}
+              </>
             ) : (
               <HistoryNotice theme={theme} busy title="正在读取提交详情…" />
             )}

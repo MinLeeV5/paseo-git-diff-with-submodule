@@ -1,9 +1,17 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import { useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import type { FileChange } from "../shared/contracts";
 import type { CommitDetails } from "../shared/history-contracts";
-import { statusLabels } from "./changes-model";
+import { buildFileRows, type FileRow, statusLabels } from "./changes-model";
 import { setWebTitle, ToolButton } from "./controls";
 import { DiffViewer } from "./diff-viewer";
 import { fileAppearance, Icon } from "./icons";
@@ -70,10 +78,14 @@ export function HistoryNotice({
 
 function CommitFile({
   file,
+  tree,
+  depth,
   theme,
   onPress,
 }: {
   file: FileChange;
+  tree: boolean;
+  depth: number;
   theme: PluginTheme;
   onPress(): void;
 }) {
@@ -104,6 +116,7 @@ function CommitFile({
       style={{
         minHeight: 30,
         paddingHorizontal: 12,
+        paddingLeft: 12 + depth * 16,
         gap: 7,
         flexDirection: "row",
         alignItems: "center",
@@ -127,7 +140,7 @@ function CommitFile({
           textDecorationLine: file.status === "deleted" ? "line-through" : "none",
         }}
       >
-        {file.path.replace(/[\n\r\t]/g, " ")}
+        {(tree ? file.path.split("/").at(-1) : file.path)?.replace(/[\n\r\t]/g, " ")}
       </Text>
       {file.binary ? (
         <Text style={{ fontSize: 10, color: c.foregroundMuted }}>二进制</Text>
@@ -147,20 +160,77 @@ function CommitFile({
   );
 }
 
+function CommitFolder({
+  item,
+  collapsed,
+  theme,
+  onToggle,
+}: {
+  item: Extract<FileRow, { kind: "folder" }>;
+  collapsed: boolean;
+  theme: PluginTheme;
+  onToggle(): void;
+}) {
+  const c = panelTokens(theme);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  return (
+    <Pressable
+      ref={(node) => setWebTitle(node, item.path)}
+      accessibilityRole="button"
+      accessibilityLabel={`${collapsed ? "展开" : "收起"}提交目录 ${item.path}`}
+      accessibilityState={{ expanded: !collapsed }}
+      {...(Platform.OS === "web" ? { "aria-expanded": !collapsed } : {})}
+      onPress={onToggle}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        minHeight: 30,
+        paddingHorizontal: 12,
+        paddingLeft: 12 + item.depth * 16,
+        gap: 7,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: hovered ? c.surface2 : "transparent",
+        borderWidth: 1,
+        borderColor: focused ? c.accent : "transparent",
+      }}
+    >
+      <Icon name={collapsed ? "chevronRight" : "chevronDown"} size={12} color={c.foregroundMuted} />
+      <Icon name={collapsed ? "folder" : "folderOpen"} size={16} color={c.foregroundMuted} />
+      <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, color: c.foreground, fontSize: 12 }}>
+        {item.label.replace(/[\n\r\t]/g, " ")}
+      </Text>
+      <Text style={{ color: c.foregroundMuted, fontSize: 10 }}>{item.count}</Text>
+    </Pressable>
+  );
+}
+
 export function CommitSummary({
   commit,
   theme,
   compact,
+  tree,
+  onTreeChange,
   onOpenFile,
   onSelectParent,
 }: {
   commit: CommitDetails;
   theme: PluginTheme;
   compact: boolean;
+  tree: boolean;
+  onTreeChange(tree: boolean): void;
   onOpenFile(path: string): void;
   onSelectParent(oid: string): void;
 }) {
   const c = panelTokens(theme);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const rows = useMemo(
+    () => buildFileRows(commit.oid, commit.files, tree, collapsed),
+    [commit.oid, commit.files, tree, collapsed],
+  );
   const additions = commit.files.reduce((sum, file) => sum + (file.additions ?? 0), 0);
   const deletions = commit.files.reduce((sum, file) => sum + (file.deletions ?? 0), 0);
   return (
@@ -229,7 +299,7 @@ export function CommitSummary({
           </Text>
         ) : null}
       </ScrollView>
-      <View style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+      <View testID="git-commit-files" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
         <View
           style={{
             minHeight: 34,
@@ -256,14 +326,43 @@ export function CommitSummary({
           >
             {commit.parents.length > 1 ? "与第一父提交比较" : "点击文件查看差异"}
           </Text>
+          <ToolButton
+            theme={theme}
+            icon={tree ? "list" : "tree"}
+            label={tree ? "以列表显示提交文件" : "以目录树显示提交文件"}
+            onPress={() => onTreeChange(!tree)}
+          />
         </View>
         {commit.files.length ? (
           <FlatList
-            data={commit.files}
-            keyExtractor={(file) => file.path}
-            renderItem={({ item }) => (
-              <CommitFile file={item} theme={theme} onPress={() => onOpenFile(item.path)} />
-            )}
+            data={rows}
+            extraData={tree}
+            keyExtractor={(item) => item.key}
+            renderItem={({ item }) =>
+              item.kind === "folder" ? (
+                <CommitFolder
+                  item={item}
+                  collapsed={collapsed.has(item.key)}
+                  theme={theme}
+                  onToggle={() =>
+                    setCollapsed((previous) => {
+                      const next = new Set(previous);
+                      if (next.has(item.key)) next.delete(item.key);
+                      else next.add(item.key);
+                      return next;
+                    })
+                  }
+                />
+              ) : (
+                <CommitFile
+                  file={item.file}
+                  depth={item.depth}
+                  tree={tree}
+                  theme={theme}
+                  onPress={() => onOpenFile(item.file.path)}
+                />
+              )
+            }
             style={{ flex: 1, minHeight: 0 }}
             initialNumToRender={12}
             windowSize={5}
@@ -318,7 +417,7 @@ export function CommitDiff({
       request: previous.request + 1,
     }));
   return (
-    <View style={{ flex: 1, minHeight: 0 }}>
+    <View testID="git-commit-diff" style={{ flex: 1, minHeight: 0 }}>
       <View
         style={{
           minHeight: 32,
@@ -330,7 +429,7 @@ export function CommitDiff({
           borderBottomColor: c.border,
         }}
       >
-        <ToolButton theme={theme} icon="back" label="返回提交详情" onPress={onBack} />
+        <ToolButton theme={theme} icon="back" label="返回提交详情（Esc）" onPress={onBack} />
         <Icon
           name={fileAppearance(path, c.foregroundMuted).icon}
           color={c.foregroundMuted}
@@ -380,6 +479,7 @@ export function CommitDiff({
           mode={mode}
           wrap={settings.wrap}
           navigation={navigation}
+          onHunkChange={(index) => setNavigation((previous) => ({ ...previous, index }))}
           from={commit.parents[0]?.slice(0, 8) ?? "空树"}
           to={commit.oid.slice(0, 8)}
           syntaxHighlight={settings.syntaxHighlight}

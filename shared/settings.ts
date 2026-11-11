@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MAX_CACHED_TABS } from "./tab-cache";
 
 export const panelSettingsSchema = z.object({
+  defaultView: z.enum(["changes", "history"]).default("changes"),
   comparison: z.enum(["head", "staged", "unstaged"]).default("head"),
   tree: z.boolean().default(false),
   sidebarWidth: z.number().min(180).max(600).default(240),

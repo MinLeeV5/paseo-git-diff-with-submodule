@@ -52,7 +52,7 @@ export const RepositoryControls = memo(function RepositoryControls({
   return (
     <View
       testID={`git-repository-controls-${id}`}
-      style={{ padding: 8, gap: 7, borderBottomWidth: 1, borderBottomColor: c.border }}
+      style={{ padding: 10, gap: 8, borderBottomWidth: 1, borderBottomColor: c.border }}
     >
       <InputField
         theme={theme}
@@ -143,19 +143,19 @@ export const RepositoryControls = memo(function RepositoryControls({
             alignItems: "center",
             justifyContent: "center",
             flexDirection: "row",
-            backgroundColor: c.accent,
-            opacity: blocked ? 0.45 : 1,
-            borderRadius: 3,
+            backgroundColor: blocked ? c.surface1 : c.accent,
+            opacity: busy ? 0.65 : 1,
+            borderRadius: 4,
             borderWidth: 1,
-            borderColor: focused ? c.foreground : c.accent,
+            borderColor: focused ? c.foreground : blocked ? c.border : c.accent,
           }}
         >
           {state?.busy === "commit" ? (
             <ActivityIndicator color={c.accentForeground} size="small" />
           ) : (
-            <Icon name="check" color={c.accentForeground} size={14} />
+            <Icon name="check" color={blocked ? c.foregroundMuted : c.accentForeground} size={14} />
           )}
-          <Text style={{ color: c.accentForeground, fontSize: 12 }}>
+          <Text style={{ color: blocked ? c.foregroundMuted : c.accentForeground, fontSize: 12 }}>
             {staged ? `提交已暂存 (${staged})` : "暂存并提交全部"}
           </Text>
         </Pressable>
@@ -169,17 +169,27 @@ export const RepositoryControls = memo(function RepositoryControls({
           />
         ) : null}
       </View>
-      <Text
-        style={{
-          color: repository.conflictCount ? c.statusDanger : c.foregroundMuted,
-          fontSize: 10,
-        }}
-      >
-        {repository.conflictCount
-          ? `${repository.conflictCount} 个冲突 · 请解决后暂存`
-          : `已暂存 ${staged} · 未暂存 ${unstaged}`}
-        {repository.upstream ? ` · ${repository.upstream}` : ""}
-      </Text>
+      <View style={{ gap: 3 }}>
+        <Text
+          style={{
+            color: repository.conflictCount ? c.statusDanger : c.foregroundMuted,
+            fontSize: 10,
+            lineHeight: 14,
+          }}
+        >
+          {repository.conflictCount
+            ? `${repository.conflictCount} 个冲突 · 请解决后暂存`
+            : `已暂存 ${staged} · 未暂存 ${unstaged}`}
+        </Text>
+        {repository.upstream ? (
+          <Text
+            numberOfLines={1}
+            style={{ color: c.foregroundMuted, fontSize: 10, lineHeight: 14 }}
+          >
+            {repository.upstream}
+          </Text>
+        ) : null}
+      </View>
       {busy && state?.busy !== "generate" ? (
         <Text accessibilityLiveRegion="polite" style={{ color: c.foregroundMuted, fontSize: 11 }}>
           {
