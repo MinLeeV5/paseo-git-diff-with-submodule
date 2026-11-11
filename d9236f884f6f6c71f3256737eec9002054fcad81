@@ -1,0 +1,46 @@
+README.md
+  bef20062aa7e7e34 18,26-27
+package.json
+  35c1ccd57d470d4a 2
+  bef20062aa7e7e34 8,10,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "d9236f884f6f6c71f3256737eec9002054fcad81",
+  "prompts": {
+    "35c1ccd57d470d4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cae0-a99a-7cb2-ba35-ad8f297a6514",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 681,
+      "overriden_lines": 0
+    },
+    "bef20062aa7e7e34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca36-04f3-7280-817b-dc94c8bd0e83",
+        "model": "gpt-6-luna"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 11,
+      "accepted_lines": 48,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 684763,
+        "output_tokens": 101861,
+        "cache_read_tokens": 13928320,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
