@@ -1,28 +1,123 @@
-# GitLens
+<p align="center">
+  <img src="assets/icon.png" width="96" height="96" alt="GitLens icon" />
+</p>
 
-Supercharge Git in Your Paseo
+<h1 align="center">GitLens</h1>
 
-在 Paseo 工作区中查看和提交 Git 变更，浏览提交图与历史差异，并递归读取已初始化的 submodule，即使它们配置了 `ignore = all`。
+<p align="center"><strong>Review and commit across repositories, without leaving Paseo.</strong></p>
 
-Review Git changes, commit graphs, and historical diffs across a workspace and its nested submodules. [English overview](OVERVIEW.md) · [中文介绍](OVERVIEW.zh-CN.md)
+<p align="center">
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2DA44E" alt="Version 0.6.0" /></a>
+  <a href="paseo-plugin.json"><img src="https://img.shields.io/badge/Paseo-0.12.0%2B-0078D4" alt="Paseo 0.12.0 or later" /></a>
+</p>
 
-![Git 差异与多文件标签](assets/git-diff.png)
+<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 
-![Git 提交图与可调整高度的提交详情](assets/git-history.png)
+<p align="center">
+  <a href="#get-started">Get started</a> ·
+  <a href="#review-changes-across-repositories">Review changes</a> ·
+  <a href="#explore-commit-history">History</a> ·
+  <a href="#preview-files">Previews</a> ·
+  <a href="#develop-and-verify">Development</a>
+</p>
 
-## 安装与打开
+- 🧩 **Nested repositories** — Review the root and initialized submodules, each against its own HEAD.
+- 🔍 **Focused diffs** — Split or unified views, file tabs, change navigation, and stable refresh.
+- ✍️ **Commit and sync** — Stage, draft messages, commit, pull, and push per repository.
+- 🌿 **Trace history** — Follow branches and merges, inspect commits, and open historical diffs.
+- 📖 **Preview documents** — Read Markdown, Mermaid, static HTML, and images alongside code.
 
-要求 Paseo daemon 和客户端均为 0.12.0 或更高版本，daemon 机器已安装 Git。
+## Get started
+
+Requires **Paseo daemon and client 0.12.0+**, with Git installed on the daemon host.
 
 ```bash
 paseo plugin install https://github.com/MinLeeV5/paseo-gitlens --ref main
 ```
 
-在目标 daemon 的 Settings → Plugins 中开启插件功能。进入 Git 工作区，点击顶部的 GitCompare 图标（悬停提示「打开 GitLens」）即可直接打开面板；插件加载或重载后自动注册入口，无需先从 Command Center 打开。也可以打开 Command Center（⌘K / Ctrl+K），选择 **GitLens · 包含 Submodule**，或从工作区或 Explorer 添加 GitLens 面板。
+Enable plugins in **Settings → Plugins** on the target daemon. Open a Git workspace, then click the **GitCompare** header icon to open GitLens. You can also select **GitLens · 包含 Submodule** in the Command Center (`⌘K` / `Ctrl+K`). The header entry may appear in the host's overflow menu.
 
-Paseo 0.15.4 的顶部最多直接显示 3 个插件按钮，窄屏最多 1 个，其余由宿主收入「更多操作」。当前插件 API 不支持固定排序；超过数量时，是否直接显示仍取决于宿主的按钮注册顺序。
+## Review changes across repositories
 
-从源码开发时运行：
+Each repository uses its own HEAD, file list, and Git actions. GitLens discovers initialized submodules recursively, including those configured with `ignore = all`, while respecting standard file ignore rules.
+
+| View     | Comparison                                                                    |
+| -------- | ----------------------------------------------------------------------------- |
+| All      | Each repository's HEAD → working tree, including staged and untracked changes |
+| Staged   | HEAD → index                                                                  |
+| Unstaged | Index → working tree, plus untracked files                                    |
+
+- Switch between split and unified diffs, open multiple tabs, and filter by path.
+- Jump between change blocks or click the red/green overview markers. Adjust context, whitespace, and wrapping.
+- Keep the current diff and scroll position while refreshing. Unchanged cached tabs reopen without another read.
+- See submodule HEAD drift separately from uncommitted changes. Review each submodule against its own HEAD.
+
+_Screenshots use a local demo workspace._
+
+![Split diff, repository groups, and file tabs](assets/git-diff.png)
+
+## Commit and sync
+
+Stage or unstage individual files with `+` / `−`, or use a repository's controls for all its files. The commit button uses staged changes when present; **Stage and commit all** explicitly includes that repository's remaining changes.
+
+Generate an editable commit message with **Paseo AI** or **local file rules**. AI uses the selected repository and staged scope when available. Customize instructions in **Settings → Commit**, or leave them empty to use the repository's `paseo.json`:
+
+```json
+{
+  "metadataGeneration": {
+    "commitMessage": {
+      "instructions": "Use Conventional Commits and explain the purpose of the change."
+    }
+  }
+}
+```
+
+Pull and push are scoped to the selected repository. Pull uses fast-forward mode; push uses its upstream or sets one on the first push. Incoming/outgoing counts use locally known upstream refs; status refresh does not fetch.
+
+Git runs on the **daemon host**, using its existing identity, authentication, remotes, and hooks. After committing a submodule, stage and commit its gitlink in the parent when ready.
+
+## Explore commit history
+
+Select **Commit graph** from the view menu to browse the root repository or a submodule.
+
+- Follow branches, merges, HEAD, and tags; filter by ref or search loaded messages, authors, and SHAs.
+- Inspect commit messages, parents, and changed files, then open historical split or unified diffs.
+- Load history in pages of 100. History refresh reads local objects without fetching; historical diffs stay independent of working-tree changes.
+
+![Commit graph with branch lanes and commit details](assets/git-history.png)
+
+## Preview files
+
+Open Markdown, static HTML, and images beside your diffs. Markdown supports offline Mermaid diagrams and workspace file links, including unchanged files, submodules, and heading anchors. Staged previews read the index version.
+
+![Markdown preview with a rendered Mermaid diagram](assets/markdown-preview.png)
+
+HTML previews do not run scripts. Document previews do not load external or relative image resources. Rendered Mermaid and HTML previews are available on desktop/Web; native mobile shows Mermaid source.
+
+## Configure your workspace
+
+**Settings** groups appearance, code, comparison, behavior, and commit options. Adjust fonts, layout, refresh interval, and the default view; preferences are saved per Paseo host. [View settings](assets/settings.png).
+
+The last **5 visited tabs** retain their contents and scroll positions by default; configure 1–10. Automatic refresh defaults to 2 seconds after a scan, pauses in the background, and can be disabled. Narrow panels use separate list and diff pages.
+
+| Shortcut                        | Action                                              |
+| ------------------------------- | --------------------------------------------------- |
+| `⌘/Ctrl+F`                      | Focus file filtering or history search              |
+| `F7` / `Shift+F7`               | Next / previous change block                        |
+| `Ctrl+PageUp` / `Ctrl+PageDown` | Previous / next file tab                            |
+| `⌘/Ctrl+Enter`                  | Commit from the message field                       |
+| `Esc`                           | Clear filtering or return from a narrow-screen diff |
+
+## Scope and limits
+
+- Supports linked worktrees, renames, deletions, conflicts, mode changes, and binary-file status. Uninitialized submodules are listed but not initialized automatically.
+- Files and previews are limited to **1 MiB**; patches to **2 MiB**. Larger entries keep their status and explain the limit.
+- Merge diffs use the first parent; root commits use the empty tree. Missing shallow-clone parents are reported explicitly.
+- Branch switching, discarding changes, and comparisons between arbitrary refs are not provided.
+
+## Develop and verify
+
+Requires **Node.js 20.19+**. Runtime assets are bundled; development dependencies are needed only when working on the source.
 
 ```bash
 git clone https://github.com/MinLeeV5/paseo-gitlens.git
@@ -32,125 +127,20 @@ npm run check
 paseo plugin install "$PWD"
 ```
 
-修改插件代码后运行 `npm run check` 和 `paseo plugin reload paseo-gitlens`。普通 Git 安装直接使用已生成的离线资源，不需要安装开发依赖。
-
-Windows PowerShell 也支持上述安装方式。若 `paseo` 未加入 PATH，可直接调用 Paseo 安装目录中的 `resources\bin\paseo.cmd`，例如：
-
-```powershell
-& "$env:ProgramFiles\Paseo\resources\bin\paseo.cmd" plugin install "$PWD"
-```
-
-请按实际安装位置调整路径。源码通过 `.gitattributes` 统一使用 LF，避免 Windows 的默认换行转换造成版本或格式检查误报。
-
-发布时使用 `npm version` 同步生成设置中显示的版本号；若跳过生命周期脚本，需运行 `npm run sync:version`。`npm run check` 会检查版本一致性。
-
-## 行为
-
-- 主仓和每层已初始化的 submodule 分组显示；读取时覆盖 submodule ignore 行为，不改写 ignore 配置。
-- 通过左侧图标下拉菜单切换“更改 / 提交图”。提交图以彩色分支连线展示分叉、合并、HEAD、本地 / 远端分支和标签，可独立选择主仓或子模块、筛选分支与标签，并分页加载本地历史；时间列按本地时区显示 `YYYY/MM/DD HH:mm:ss`，精确到秒。
-- 点击提交查看作者、完整消息、SHA、父提交和修改文件；点击文件查看历史统一 / 左右 diff。合并提交与第一父提交比较，初始提交与空树比较；历史内容不受当前工作目录和暂存区修改影响。
-- 默认“全部未提交”：逐仓比较各自 HEAD 与工作目录，包含暂存区和未跟踪文件。
-- “已暂存”比较 HEAD 与暂存区；“未暂存”比较暂存区与工作目录，并显示未跟踪文件。
-- 继续遵守 `.gitignore`、全局 ignore 和 `.git/info/exclude`；已跟踪文件仍按 Git 规则显示。
-- 父仓记录的 gitlink 与子仓当前 HEAD 不同时，在仓库标题中单独显示，不将子仓历史提交计入本地修改。
-- 采用 VS Code 风格的紧凑布局：图标与悬停提示、可拖动 / 隐藏侧栏、列表 / 目录树、文件路径和增删行底色。
-- 文件采用 vscode-icons 的彩色类型图标，操作按钮采用 VS Code Codicons；代码按语言着色，适配深浅主题。图标来源与许可见 [第三方资源](docs/third-party-notices.md)。
-- 点击文件新增可关闭标签，重复打开定位已有标签；标签栏支持触控板、横向滚动条和普通滚轮。
-- Markdown、HTML 与图片可切换全文预览，已暂存视图读取真实暂存区内容；侧栏和标签右键均可复制路径、复制相对工作区路径，并在主机 Finder / 文件管理器中定位；标签还支持关闭当前、其他、左侧、右侧或全部。
-- 右上角设置按「外观、代码、比较、行为、提交」五个 Tab 分类，字体、字号、字重等使用下拉选择，提供实时字体示例。设置自动保存到 Paseo 主机，包括布局、侧栏宽度、左右对比比例、标签缓存数量、字体、Tab 宽度、语法着色、行号、换行、上下文、空白、预览偏好和刷新策略。
-- 每个仓库提供独立提交信息输入框、自动生成、暂存 / 取消暂存、提交、拉取与推送，覆盖主仓及每层子模块。文件行的 `+` / `−` 可直接暂存 / 取消暂存单个文件，部分暂存时同时显示两个入口；右键或长按菜单也可操作。
-- 提供文件筛选、统一 / 左右对比、行号、差异块跳转、忽略空白、上下文和换行选项；打开 diff 自动定位首处实际改动，全文上下文也无需手动寻找。
-- 文件 diff 右侧滚动条旁显示增删位置概览：红色表示删除，绿色表示新增；点击色块跳到对应代码行，悬停显示行号，也支持键盘聚焦后按 Enter / 空格跳转。工作区和历史 diff 均支持，并与差异块导航同步。
-- 默认扫描结束约 2 秒后自动刷新，间隔可配置；可暂停，后台不轮询，失败时逐步退避，回到前台恢复读取。手动刷新立即重新扫描。
-- 支持重命名、删除、二进制状态、符号链接、权限变化、空仓库和 linked worktree。未初始化的子模块显示状态，不自动 clone、fetch 或更新指针。
-- Git 读取在 daemon 机器上执行，客户端通过普通 RPC 获取文件状态与按需加载的补丁。
-
-插件支持逐仓暂存、取消暂存、提交、拉取与推送。丢弃更改、分支切换以及任意两个 ref 之间的比较暂未提供。单个工作 / 历史文件超过 1 MiB 或补丁超过 2 MiB 时，显示状态和限制说明，使用本地 Git 工具查看完整内容。
-
-## 多仓库提交与同步
-
-每个已初始化仓库都有独立提交区与草稿。已暂存内容存在时，主按钮仅提交暂存区；没有暂存内容时，按钮明确显示“暂存并提交全部”。同时存在两种更改时，可点“全部”提交此仓库的全部更改。`+` / `−` 分别暂存或取消此仓库全部暂存；文件右键 / 长按菜单支持单文件暂存及取消暂存。取消暂存保留工作目录内容。
-
-提交信息使用紧凑单行输入框，右侧可自动生成：有已暂存更改时只使用暂存范围，否则根据全部可提交更改生成。默认通过 Paseo AI 会话读取所选仓库的文件清单和有限 diff，沿用主机 `metadataGeneration.providers` 的模型顺序与现有认证，无需另外配置 API 地址、密钥或模型。生成结果直接填入草稿，不额外显示成功提示；生成期间手动修改的草稿会被保留。生成会话绑定面板当前 workspace，在后台执行，完成、失败或超时后自动归档，不创建新 workspace。Paseo 0.15.2 尚未向插件开放完全隐藏的内部 Agent，生成期间可能短暂出现在当前工作区的会话列表中，归档记录仍可查看。生成过程不执行 Git 写操作。
-
-在 **Git 设置 → 提交** 编辑自然语言提示词，例如“用中文，遵循 Conventional Commits，说明变更目的”。提示词保存在当前主机，适用于所有仓库；留空时读取所选仓库根目录的 `paseo.json`，每个子模块可以有自己的指令：
-
-```json
-{
-  "metadataGeneration": {
-    "commitMessage": {
-      "instructions": "用中文，采用 fix/feat/docs 前缀，概括变更目的。"
-    }
-  }
-}
-```
-
-未配置提示词时使用简洁中文 Conventional Commits 标题；输出始终是一行，最多 120 字符。模型选择先尝试 Paseo 配置，然后按当前宿主的元数据默认模型顺序匹配可用模型，最后使用已启用提供商的默认模型，每次最多尝试三个。大 diff 最多发送 80 个文件补丁、120000 字符，其余保留文件摘要；父仓不会包含子模块内部文件 diff。AI 失败时保留草稿并显示错误，也可在设置中主动切换为“本地文件规则”生成。
-
-草稿按仓库独立保存，折叠、筛选、视图切换及移动端打开文件再返回均保留；面板关闭后释放。Web / 桌面在提交框内按 `Ctrl/Cmd+Enter` 提交，输入法确认候选词不会触发提交。
-
-拉取和推送用紧凑的向下 / 向上箭头加提交数呈现，悬停或辅助阅读可查看操作和数量。数字分别是当前分支相对已知上游的落后 / 领先提交数，各仓独立；无上游或引用不可用时只显示图标。数量基于本地已有的上游记录，刷新不会自动 fetch。拉取使用快进方式，分叉时保留现场并显示 Git 错误。推送沿用当前分支上游；首次推送优先使用 `origin` 或唯一远程仓库并设置上游。每次操作只作用于按钮所属仓库；子仓提交后，父仓指针可另行暂存并提交。Git 在 daemon 主机上执行并使用现有 Git 配置、身份、认证和钩子。操作期间禁用该仓库重复操作；失败保留提交草稿并刷新实际状态，钩子拒绝提交时已暂存内容可继续检查与重试。
-
-提交、拉取、推送、暂存和取消暂存的结果使用 Paseo 全局消息，消息带有所属仓库；同仓库两秒内相同结果合并提示。失败时同时保留仓库内可复制的完整错误。复制路径和提交 SHA 也提供全局反馈，定位已删除文件时提示已打开所在目录，文件定位或预览链接打开失败时显示错误消息。AI 生成成功仍直接填入草稿，失败显示全局提醒并保留详情。恢复默认设置在保存完成后提示成功；自动保存、读取失败、冲突和文件限制继续在原位置显示。
-
-窄屏文件页支持 Android 系统返回键 / 返回手势，以及手机浏览器的返回操作，回到变更列表并保留滚动位置。在列表页不拦截系统返回。iOS 原生侧滑手势由 Paseo 宿主导航控制，当前插件 SDK 尚未开放对应接口。
-
-## 界面与键盘
-
-文件列表内使用方向键切换文件，Enter 打开；筛选框中 Enter / Shift+Enter 循环选择下一个 / 上一个匹配文件，并保留输入焦点，窄屏保留列表以便连续查找。`Ctrl+PageUp/PageDown` 切换已打开标签，`Ctrl/Cmd+W` 关闭当前标签；`Ctrl/Cmd+F` 或 `/` 定位筛选，`Esc` 清除筛选或在窄屏返回列表，`F7` / `Shift+F7` 跳转下一个 / 上一个差异块。图标按钮支持悬停说明与键盘焦点。
-
-提交图中 `Ctrl/Cmd+F` 定位搜索框，按提交消息、作者、邮箱或 SHA 查找已加载提交；搜索保留分支拓扑并淡化未匹配行，输入框中 Enter / Shift+Enter 循环跳转下一个 / 上一个匹配，焦点留在搜索框，中文输入法确认候选词时不跳转。提交行聚焦后使用方向键、Home / End 选择，Enter 打开详情。窄屏点击提交进入独立详情页，返回按钮回到图；桌面详情可展开，也可拖动顶部边界调整高度，松手记住比例。聚焦边界后上下键每次调整 10px，双击或 Home 恢复默认比例。切换“更改 / 提交图”保留各自的标签、选择和滚动区域，后台更改视图暂停轮询。
-
-历史每页读取 100 条，通过“加载更多提交”继续；分支或标签在分页期间变化时提示刷新，避免混合不同版本的历史。提交图手动刷新，不执行 fetch，也不读取远端尚未下载的提交；浅克隆缺少父提交时说明差异不可用。
-
-提交详情中的文件支持列表和目录树，通过文件区右上角按钮切换，与「设置 → 外观 → 文件排列」及更改视图共用配置。打开历史文件差异后按 `Esc` 返回文件列表，保留目录展开状态和滚动位置。
-
-面板小于 720px 时以完整列表和独立 diff 页面显示，点击文件进入差异，返回列表保留原滚动位置；代码区域不足 650px 时自动使用统一对比。拖动侧栏边缘改变宽度，双击边缘恢复 240px；聚焦边缘后左右方向键微调，Home 恢复默认。仓库标题在文件列表中吸顶，滚动到下一仓库时接替显示。侧栏按钮固定在标签栏右侧，不随标签滚动。左右对比的中线可拖动到 20%–80%，两侧代码可独立横向滚动；聚焦中线后方向键每次调整 2%，Home 或双击恢复均分。顶部只保留可滚动标签与单行路径工具栏，其他显示选项集中在设置中。主界面颜色跟随 Paseo 主题。
-
-默认界面字体跟随 Paseo；默认代码字体使用 Paseo 的 SFMono/Menlo/Consolas 栈、13px 与 500 字重。设置支持 Paseo / VS Code / JetBrains Mono / 自定义已安装字体，以及 400/500/600 字重；缺失字体使用系统等宽回退。已有用户保存的字号保留。
-
-设置抽屉只滚动当前分类内容，顶部分类和底部保存状态、插件版本号、恢复默认入口保持固定。分类支持左右键、Home/End 切换；自动刷新关闭时禁用间隔下拉并保留原值，保存失败可直接重试。分组与控件设计见 [设置面板设计](docs/settings-design.md)。
-
-「设置 → 行为 → 默认进入」可选择更改或提交图，默认进入更改。修改后在下次打开面板时生效，当前视图保留。
-
-标签默认缓存最近访问的 5 个，可在「设置 → 行为 → 缓存标签数量」选择 1–10 个。缓存保留已挂载的差异 / 预览与滚动位置，切回未变化文件不重新读取；文件版本或比较参数变化时更新，关闭标签立即释放。较大内容按估算 24 MiB 预算提前淘汰旧页，当前标签始终保留；这是缓存估算，不是浏览器堆内存上限。面板关闭后内容缓存释放，数量设置仍会保留。差异布局仅提供左右与统一对比，旧版补丁布局偏好自动迁移到统一对比。
-
-预览提供 Markdown 常见排版与代码块着色、离线 Mermaid 图表、HTML 静态页面和常见图片。Mermaid 首次需要时加载压缩引擎，单份预览最多绘制 16 张图，每张最多 20000 字符、500 条边；错误图表保留可展开源码，不影响后续图表。HTML 不运行脚本或加载外部 / 相对资源；Markdown 原始 HTML 按文本显示，图片路径显示占位。Markdown 文件链接会在插件内打开或复用标签，也支持未修改文件、跨子模块、页内和跨文件标题锚点；普通代码文件以只读语法着色展示。相对路径从当前文档解析，`/` 开头从工作区根解析，工作区内的 `file://` 路径也可用；目录链接交由主机文件管理器显示，HTTP(S) 链接使用客户端外部浏览器打开。拒绝越出工作区和 Git 内部文件的路径。不是带构建服务的网页调试器。原生移动端支持格式化 Markdown、文件链接和标题锚点，Mermaid 显示图表源码；HTML 静态预览与 Mermaid 图形渲染面向桌面 / Web。预览最多读取 1 MiB。Finder 在 daemon 所在主机执行；删除文件定位最近仍存在的父目录。
-
-“全部”比较每个仓库的 HEAD 与工作目录。暂存后又反向修改时，两部分可能互相抵消；切换“已暂存”和“未暂存”可分别审阅。与 VS Code 的交互、视觉和性能对照及剩余差距见 [差距分析](docs/vscode-gap-analysis.md)。
-
-## 验证
+After editing, run `npm run check` and `paseo plugin reload paseo-gitlens`. To preview the real UI against a local Git repository:
 
 ```bash
-npm run check
-npm run check:compatibility
-npm run acceptance -- /absolute/path/to/git-project
-npm run verify:installed -- /absolute/path/to/git-project
-npm run benchmark
+PASEO_DIFF_ACCEPTANCE_DIRECTORY=/absolute/path/to/repo npm run dev:ui
 ```
 
-验证结果与运行范围见 [验证记录](docs/verification.md)。
+Open `http://127.0.0.1:4178`; add `?theme=light` to check the light theme.
 
-- 回归测试只写临时 Git 仓库，覆盖多层 ignore、worktree、暂存区、重命名和特殊文件名等情况。
-- 兼容性脚本下载 0.12.0、0.13.0、0.14.0、0.15.0 的 SDK 声明并分别执行类型检查；它不替代各版本客户端的运行测试。
-- 验收脚本只读目标项目，逐仓对照原生 Git 文件列表并读取每个补丁，报告写入本插件的 `artifacts/acceptance.json`，只记录路径、统计和状态。
-- `verify:installed` 使用本机 daemon 的现有认证，调用已安装插件的真实 RPC，报告写入 `artifacts/runtime.json`；默认连接 `127.0.0.1:6767`。
-- `benchmark` 在临时仓库测量 1000 文件扫描、补丁缓存和 10000 文件目录树 / 筛选，以及 5000 行语法状态和 40 行着色，结果写入 `artifacts/performance.json`，完成后删除临时仓库。
+| Command                                     | Purpose                                                                |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| `npm run check`                             | Version consistency, TypeScript, formatting, lint, and tests           |
+| `npm run check:compatibility`               | Type checks against Paseo SDK 0.12–0.15                                |
+| `npm run acceptance -- /path/to/repo`       | Compare repository results with native Git                             |
+| `npm run verify:installed -- /path/to/repo` | Verify the installed plugin over real RPC                              |
+| `npm run benchmark:regression`              | Compare frozen sources in an isolated daemon; fail on regression flags |
 
-真实项目验收示例：
-
-```bash
-npm run acceptance -- /absolute/path/to/git-project
-```
-
-本地界面验收使用真实的服务端和 React Native Web 渲染面板：
-
-```bash
-PASEO_DIFF_ACCEPTANCE_DIRECTORY=/absolute/path/to/git-project npm run dev:ui
-```
-
-浏览器打开 `http://127.0.0.1:4178`。缩窄窗口验证紧凑布局；添加 `?theme=light` 验证浅色主题。预览服务器只监听本机，用于开发验收；正式插件直接运行在 Paseo 中。
-
-## 兼容策略
-
-manifest 声明 `>=0.12.0`，开发依赖锁定 `@getpaseo/plugin@0.12.0`，使用基础面板、普通 RPC 和 React Native 组件。后续 Paseo 版本若调整插件接口，需要重新运行兼容检查并适配。
+The regression benchmark requires a separate runtime. See [setup, measurements, and thresholds](docs/benchmarks/2026-11-12-optimization.md). More detail: [verification records](docs/verification.md), [VS Code comparison](docs/vscode-gap-analysis.md), and [third-party notices](docs/third-party-notices.md).
