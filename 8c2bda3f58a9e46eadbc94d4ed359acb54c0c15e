@@ -1,0 +1,31 @@
+index.client.tsx
+  bef20062aa7e7e34 5,8,16,18,20-33,38-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "8c2bda3f58a9e46eadbc94d4ed359acb54c0c15e",
+  "prompts": {
+    "bef20062aa7e7e34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca36-04f3-7280-817b-dc94c8bd0e83",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 17,
+      "accepted_lines": 40,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/6b4099bb4b073404f99845d2d62b89cc5a55d6148a4d65f0e64b858f0de92d0a",
+      "token_usage": {
+        "input_tokens": 611965,
+        "output_tokens": 67915,
+        "cache_read_tokens": 7273600,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
