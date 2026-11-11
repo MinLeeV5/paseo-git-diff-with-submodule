@@ -1,0 +1,45 @@
+README.md
+  bef20062aa7e7e34 1,3-5,18,21,48
+OVERVIEW.zh-CN.md
+  bef20062aa7e7e34 1
+client/settings-panel.tsx
+  bef20062aa7e7e34 576
+OVERVIEW.md
+  bef20062aa7e7e34 1
+paseo-plugin.json
+  bef20062aa7e7e34 3-4,14-15
+package.json
+  bef20062aa7e7e34 5
+tests/browser/index.html
+  bef20062aa7e7e34 1
+docs/verification.md
+  bef20062aa7e7e34 3-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "0839aa9827ebf84e30d534f3b321c244b05fdaef",
+  "prompts": {
+    "bef20062aa7e7e34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca36-04f3-7280-817b-dc94c8bd0e83",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 27,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/62afb4b875dc2dd83fee52b010c8c0c9015896baf8a3259e83e60fc6438c3901",
+      "token_usage": {
+        "input_tokens": 614455,
+        "output_tokens": 69446,
+        "cache_read_tokens": 7683840,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
