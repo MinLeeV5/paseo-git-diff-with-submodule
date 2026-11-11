@@ -13,7 +13,7 @@ Review Git changes, commit graphs, and historical diffs across a workspace and i
 要求 Paseo daemon 和客户端均为 0.12.0 或更高版本，daemon 机器已安装 Git。
 
 ```bash
-paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.4.2
+paseo plugin install https://github.com/MinLeeV5/paseo-git-diff-with-submodule --ref v0.4.3
 ```
 
 在目标 daemon 的 Settings → Plugins 中开启插件功能。进入任意 Git 工作区，打开 Command Center（⌘K / Ctrl+K），选择 **Git Changes · 包含 Submodule**；也可以从工作区或 Explorer 添加 Git Changes 面板。
@@ -43,7 +43,7 @@ Windows PowerShell 也支持上述安装方式。若 `paseo` 未加入 PATH，�
 ## 行为
 
 - 主仓和每层已初始化的 submodule 分组显示；读取时覆盖 submodule ignore 行为，不改写 ignore 配置。
-- 通过左侧图标下拉菜单切换“更改 / 提交图”。提交图参考 GitLens，以彩色分支连线展示分叉、合并、HEAD、本地 / 远端分支和标签，可独立选择主仓或子模块、筛选分支与标签，并分页加载本地历史。
+- 通过左侧图标下拉菜单切换“更改 / 提交图”。提交图参考 GitLens，以彩色分支连线展示分叉、合并、HEAD、本地 / 远端分支和标签，可独立选择主仓或子模块、筛选分支与标签，并分页加载本地历史；时间列按本地时区显示 `YYYY/MM/DD HH:mm:ss`，精确到秒。
 - 点击提交查看作者、完整消息、SHA、父提交和修改文件；点击文件查看历史统一 / 左右 diff。合并提交与第一父提交比较，初始提交与空树比较；历史内容不受当前工作目录和暂存区修改影响。
 - 默认“全部未提交”：逐仓比较各自 HEAD 与工作目录，包含暂存区和未跟踪文件。
 - “已暂存”比较 HEAD 与暂存区；“未暂存”比较暂存区与工作目录，并显示未跟踪文件。

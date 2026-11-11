@@ -1,5 +1,11 @@
 # 验证记录
 
+## v0.4.3 提交图时间显示（2026-11-11）
+
+- 提交图表格的“日期”列改为“时间”，按客户端本地时区显示 `YYYY/MM/DD HH:mm:ss`，保留日期并精确到秒；时间列与表头共用 160px 宽度，单行显示。
+- 验证秒数补零、带时区输入转换与跨日零点显示。`npm run check` 的版本一致性、TypeScript、Biome 和 127 项回归全部通过，SDK 0.12 / 0.13 / 0.14 / 0.15 类型兼容通过。
+- `npm pack --dry-run --ignore-scripts` 确认分发包含提交图模块与版本元数据，不包含测试和本机验收产物；本机目录插件重载后状态为 `running`。版本号、锁文件、设置页元数据与安装命令同步为 v0.4.3。
+
 ## v0.4.2 Windows 安装与验证（2026-11-09）
 
 - 在 Windows 本机 Paseo 0.15.3 中，Git 安装与本地目录加载均报 `Could not resolve type dependency "@getpaseo/client"`，错误指向 `server/commit-message.ts`。此文件直接从开发依赖导入类型；Paseo 的运行边界检查也解析类型依赖，干净安装目录中没有该包。修正为从宿主提供的 `PluginHandlerContext["paseo"]` 推导类型，不增加安装依赖或准备命令。

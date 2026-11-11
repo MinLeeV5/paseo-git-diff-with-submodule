@@ -64,8 +64,10 @@ export function matchesCommit(commit: GitCommit, query: string) {
   );
 }
 
-export function shortDate(value: string) {
+export function formatCommitTime(value: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (part: number) => String(part).padStart(2, "0");
+  const day = `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`;
+  return `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }

@@ -13,7 +13,7 @@ import { FlatList, Platform, ScrollView, Text, type TextInput, View } from "reac
 import type { GitRef } from "../shared/history-contracts";
 import { defaultSettings } from "../shared/settings";
 import { CommitDiff, CommitSummary, HistoryNotice } from "./commit-details";
-import { COMMIT_ROW_HEIGHT, CommitGraphRow } from "./commit-graph";
+import { COMMIT_ROW_HEIGHT, COMMIT_TIME_WIDTH, CommitGraphRow } from "./commit-graph";
 import { InputField, ToolButton } from "./controls";
 import { buildCommitGraph, type GraphRow, matchesCommit } from "./graph-model";
 import { Icon } from "./icons";
@@ -94,7 +94,7 @@ export function HistoryPanel({
   const graphWidth = Math.max(68, graph.width * 16 + 26);
   const tableWidth = Math.max(size.width, graphWidth + 260);
   const showAuthor = size.width >= 1000;
-  const showDate = size.width >= 820;
+  const showTime = size.width >= 820;
   const showDetails = Boolean(selected && (detailsOpen ?? !compact));
   const showGraph = !(showDetails && (expanded || compact));
   const minDetailsHeight = Math.min(160, bodyHeight / 2);
@@ -213,7 +213,7 @@ export function HistoryPanel({
         active={selected === item.commit.oid}
         matched={matchesCommit(item.commit, query)}
         showAuthor={showAuthor}
-        showDate={showDate}
+        showTime={showTime}
         onSelect={selectCommit}
       />
     ),
@@ -225,7 +225,7 @@ export function HistoryPanel({
       selected,
       query,
       showAuthor,
-      showDate,
+      showTime,
       selectCommit,
     ],
   );
@@ -439,9 +439,11 @@ export function HistoryPanel({
                         作者
                       </Text>
                     ) : null}
-                    {showDate ? (
-                      <Text style={{ width: 100, color: c.foregroundMuted, fontSize: 10 }}>
-                        日期
+                    {showTime ? (
+                      <Text
+                        style={{ width: COMMIT_TIME_WIDTH, color: c.foregroundMuted, fontSize: 10 }}
+                      >
+                        时间
                       </Text>
                     ) : null}
                     <Text style={{ width: 68, color: c.foregroundMuted, fontSize: 10 }}>提交</Text>

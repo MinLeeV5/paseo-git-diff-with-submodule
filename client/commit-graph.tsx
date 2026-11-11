@@ -3,11 +3,12 @@ import { createElement, memo, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import type { GitRef } from "../shared/history-contracts";
 import { setWebTitle } from "./controls";
-import { type GraphRow, shortDate } from "./graph-model";
+import { formatCommitTime, type GraphRow } from "./graph-model";
 import { Icon } from "./icons";
 import { mixColor, panelTokens } from "./theme";
 
 export const COMMIT_ROW_HEIGHT = 34;
+export const COMMIT_TIME_WIDTH = 160;
 const LANE_WIDTH = 16;
 const x = (lane: number) => 18 + lane * LANE_WIDTH;
 const palettes = {
@@ -177,7 +178,7 @@ export const CommitGraphRow = memo(function CommitGraphRow({
   active,
   matched,
   showAuthor,
-  showDate,
+  showTime,
   onSelect,
 }: {
   row: GraphRow;
@@ -188,14 +189,14 @@ export const CommitGraphRow = memo(function CommitGraphRow({
   active: boolean;
   matched: boolean;
   showAuthor: boolean;
-  showDate: boolean;
+  showTime: boolean;
   onSelect(oid: string): void;
 }) {
   const c = panelTokens(theme);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const background = active ? c.selection : hovered ? c.surface2 : c.surface0;
-  const visibleRefs = showDate ? 2 : 1;
+  const visibleRefs = showTime ? 2 : 1;
   return (
     <Pressable
       ref={(node) =>
@@ -244,7 +245,7 @@ export const CommitGraphRow = memo(function CommitGraphRow({
           overflow: "hidden",
         }}
       >
-        {head && showDate ? (
+        {head && showTime ? (
           <Text style={{ color: c.accent, fontFamily: c.mono, fontSize: 9, fontWeight: "600" }}>
             HEAD
           </Text>
@@ -254,7 +255,7 @@ export const CommitGraphRow = memo(function CommitGraphRow({
             key={ref.fullName}
             reference={ref}
             theme={theme}
-            maxWidth={showDate ? 180 : 110}
+            maxWidth={showTime ? 180 : 110}
           />
         ))}
         {references.length > visibleRefs ? (
@@ -280,11 +281,17 @@ export const CommitGraphRow = memo(function CommitGraphRow({
           {row.commit.author}
         </Text>
       ) : null}
-      {showDate ? (
+      {showTime ? (
         <Text
-          style={{ color: c.foregroundMuted, fontSize: 11, width: 100, opacity: matched ? 1 : 0.4 }}
+          numberOfLines={1}
+          style={{
+            color: c.foregroundMuted,
+            fontSize: 11,
+            width: COMMIT_TIME_WIDTH,
+            opacity: matched ? 1 : 0.4,
+          }}
         >
-          {shortDate(row.commit.date)}
+          {formatCommitTime(row.commit.date)}
         </Text>
       ) : null}
       <Text

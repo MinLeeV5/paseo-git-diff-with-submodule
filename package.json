@@ -1,6 +1,6 @@
 {
   "name": "paseo-git-diff-with-submodule",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "description": "Review and commit Git changes, pull and push repositories, and browse commit graphs and historical diffs across nested submodules.",
   "repository": {
