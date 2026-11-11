@@ -7,7 +7,7 @@
 <p align="center"><strong>在 Paseo 中审阅多仓库变更，提交代码并追溯历史。</strong></p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2DA44E" alt="版本 0.6.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.1-2DA44E" alt="版本 0.6.1" /></a>
   <a href="paseo-plugin.json"><img src="https://img.shields.io/badge/Paseo-0.12.0%2B-0078D4" alt="Paseo 0.12.0 及以上" /></a>
 </p>
 
@@ -71,6 +71,8 @@ _截图使用本地示例工作区。_
   }
 }
 ```
+
+AI 生成会将文件路径、变更信息、diff 片段与提示词发送给已配置的 Paseo 模型提供商；本地规则在 daemon 主机执行。
 
 拉取和推送只作用于所属仓库。拉取使用快进模式，推送沿用上游或在首次推送时设置上游。箭头旁的提交数来自本地已有的上游引用，刷新状态不会执行 fetch。
 

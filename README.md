@@ -7,7 +7,7 @@
 <p align="center"><strong>Review and commit across repositories, without leaving Paseo.</strong></p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2DA44E" alt="Version 0.6.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.1-2DA44E" alt="Version 0.6.1" /></a>
   <a href="paseo-plugin.json"><img src="https://img.shields.io/badge/Paseo-0.12.0%2B-0078D4" alt="Paseo 0.12.0 or later" /></a>
 </p>
 
@@ -71,6 +71,8 @@ Generate an editable commit message with **Paseo AI** or **local file rules**. A
   }
 }
 ```
+
+AI drafts send file paths, change metadata, diff excerpts, and instructions to the configured Paseo provider. Local rules run on the daemon host.
 
 Pull and push are scoped to the selected repository. Pull uses fast-forward mode; push uses its upstream or sets one on the first push. Incoming/outgoing counts use locally known upstream refs; status refresh does not fetch.
 
