@@ -1,0 +1,79 @@
+index.client.tsx
+  35c1ccd57d470d4a 5-9,11-52,68,72-91,93-98,100-102,105
+tests/header-shortcut.test.ts
+  35c1ccd57d470d4a 94-97
+  81e8634d80c26567 1-93,98-150,152-173,175-194,196-216,218-225
+README.md
+  81e8634d80c26567 21-23
+docs/verification.md
+  81e8634d80c26567 3-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "b0611d6b23ec20f122aeca30c4ab4dee426d02fb",
+  "prompts": {
+    "35c1ccd57d470d4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cae0-a99a-7cb2-ba35-ad8f297a6514",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 5106,
+      "total_deletions": 780,
+      "accepted_lines": 5021,
+      "overriden_lines": 2,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/9f7590b605420b47b1e07d949f1b309a5b1cf51f2198deb3e766ae8f187c0ce6",
+      "token_usage": {
+        "input_tokens": 293451,
+        "output_tokens": 93578,
+        "cache_read_tokens": 17110272,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "81e8634d80c26567": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1caf4-cfa5-7913-9475-6601bd6e7b14",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 226,
+      "total_deletions": 1,
+      "accepted_lines": 219,
+      "overriden_lines": 4,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/4edfa6272d0b68684e146b7a66ab7e6ee3aea7fe2cb2e967c29b74f3fe37181e",
+      "token_usage": {
+        "input_tokens": 199420,
+        "output_tokens": 19536,
+        "cache_read_tokens": 3913856,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "bef20062aa7e7e34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca36-04f3-7280-817b-dc94c8bd0e83",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 33,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 724223,
+        "output_tokens": 127694,
+        "cache_read_tokens": 15184128,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
