@@ -1,0 +1,140 @@
+client/tab-editor.tsx
+  da763f5e567f51c2 32,54,141
+client/changes-model.ts
+  8a44953fa88b9b8e 51-71
+  bef20062aa7e7e34 147-148,150-157,159-160,162
+docs/licenses/lucide-ISC.txt
+  8a44953fa88b9b8e 1-15
+client/commit-details.tsx
+  da763f5e567f51c2 2-11,14,81-82,87-88,119,143,163-210,215-216,223-224,229-233,302,329-334,338-365,420,432,482
+client/changes-panel.tsx
+  da763f5e567f51c2 1543-1548
+  8a44953fa88b9b8e 43-44,59,141,168-178,181-186,188,192,201,208-223,226,229-241,381,387-389,418-441,466,532,544,610-613,692,725-727,730,892-941,943-945,949,953,1242-1246,1338,1442,1685,1758-1779,1781-1783,1789,1791-1793,1796-1806,1840-1846
+README.md
+  da763f5e567f51c2 102-103,110
+  04a2b3863bdd69ee 59
+docs/third-party-notices.md
+  da763f5e567f51c2 5-8,10
+  8a44953fa88b9b8e 9,16
+client/generated/icons.ts
+  8a44953fa88b9b8e 1
+  da763f5e567f51c2 2
+client/workspace-views.ts
+  da763f5e567f51c2 1,3-6
+  bef20062aa7e7e34 2
+docs/verification.md
+  da763f5e567f51c2 11-18
+  04a2b3863bdd69ee 3-10
+client/history-panel.tsx
+  da763f5e567f51c2 37,45,61-65,163-166,176,185,190-192,248,254,649-678
+shared/settings.ts
+  da763f5e567f51c2 6
+client/view-switcher.tsx
+  da763f5e567f51c2 7,9
+client/settings-panel.tsx
+  da763f5e567f51c2 8,11,115,146,149,155-161,344,493-496
+tests/file-tree.test.ts
+  da763f5e567f51c2 1-64
+client/web-chrome.tsx
+  04a2b3863bdd69ee 427
+tests/ui-model.test.ts
+  8a44953fa88b9b8e 2-8,35-43,78-149
+  bef20062aa7e7e34 150
+tests/settings.test.ts
+  da763f5e567f51c2 1-19
+client/repository-controls.tsx
+  8a44953fa88b9b8e 55,146-148,150,156,158,172-192
+scripts/build-assets.ts
+  8a44953fa88b9b8e 91-94,100,106-108,117,124
+docs/settings-design.md
+  da763f5e567f51c2 16,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "8e13d2579713e163c6d6e0448711663e2bbaa650",
+  "prompts": {
+    "04a2b3863bdd69ee": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca1c-e56e-77d1-965f-fc95dcbfd3c4",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/6e07cf94cf8c34446a379ecaefb900a16677e3051040842c99c9bebba2b0bb9f",
+      "token_usage": {
+        "input_tokens": 167347,
+        "output_tokens": 40292,
+        "cache_read_tokens": 6671744,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "8a44953fa88b9b8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c9e4-676d-7d91-8fab-0046b50529a2",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 335,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 288203,
+        "output_tokens": 62485,
+        "cache_read_tokens": 15774464,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "bef20062aa7e7e34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca36-04f3-7280-817b-dc94c8bd0e83",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 325,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/c23b7b314a5fd23591d1801595a6f10bd4e60c432dfffd0cc457059493b7b313",
+      "token_usage": {
+        "input_tokens": 119012,
+        "output_tokens": 18601,
+        "cache_read_tokens": 1352576,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "da763f5e567f51c2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ca16-788e-7720-897c-06f3ee3948b5",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 297,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 213737,
+        "output_tokens": 38880,
+        "cache_read_tokens": 8841472,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
