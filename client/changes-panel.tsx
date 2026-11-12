@@ -22,6 +22,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   type TextInput,
@@ -100,6 +101,8 @@ export function ChangesPanel(props: PluginWorkspacePanelProps) {
 }
 
 type Styles = ReturnType<typeof makeStyles>;
+const MAX_TREE_INDENT_DEPTH = 32;
+const TREE_INDENT = 14;
 const INITIAL_HUNK_NAVIGATION = { index: 0, request: 0 };
 const ChangeItem = memo(function ChangeItem({
   item,
@@ -259,7 +262,7 @@ const ChangeItem = memo(function ChangeItem({
         style={[
           styles.file,
           compact && styles.touchRow,
-          { paddingLeft: 10 + Math.min(item.depth, 6) * 14 },
+          { paddingLeft: 10 + Math.min(item.depth, MAX_TREE_INDENT_DEPTH) * TREE_INDENT },
           ...rowFeedback,
         ]}
       >
@@ -330,7 +333,9 @@ const ChangeItem = memo(function ChangeItem({
         style={[
           styles.fileOpen,
           compact && styles.touchFileOpen,
-          { paddingLeft: tree ? 25 + Math.min(item.depth, 6) * 14 : 24 },
+          {
+            paddingLeft: tree ? 25 + Math.min(item.depth, MAX_TREE_INDENT_DEPTH) * TREE_INDENT : 24,
+          },
         ]}
       >
         <Icon name={appearance.icon} color={appearance.color} />
@@ -644,6 +649,15 @@ function WorkspaceEditor({
     () => model.rows.flatMap((row, index) => (row.kind === "repository" ? [index] : [])),
     [model.rows],
   );
+  const fileListMinWidth = useMemo(() => {
+    if (!tree) return 0;
+    const depth = model.rows.reduce(
+      (max, row) => (row.kind === "folder" || row.kind === "file" ? Math.max(max, row.depth) : max),
+      0,
+    );
+    // Reserve room for names and actions after the deepest visible indentation.
+    return 220 + Math.min(depth, MAX_TREE_INDENT_DEPTH) * TREE_INDENT;
+  }, [model.rows, tree]);
   const selectedKey = tabs.active;
   const linked = selectedKey ? linkedFiles[selectedKey] : undefined;
   const linkedPath = linked?.path;
@@ -1332,40 +1346,49 @@ function WorkspaceEditor({
                 <Text style={styles.muted}>正在读取 Git 状态…</Text>
               </View>
             ) : (
-              <FlatList
-                testID="git-file-list"
-                ref={listRef}
+              <ScrollView
+                horizontal
+                testID="git-file-tree-scroll"
                 style={styles.list}
-                contentContainerStyle={styles.listContent}
-                data={model.rows}
-                stickyHeaderIndices={repositoryHeaders}
-                stickyHeaderHiddenOnScroll={false}
-                renderItem={renderRow}
-                keyExtractor={(item) => item.key}
-                initialNumToRender={24}
-                maxToRenderPerBatch={24}
-                windowSize={7}
-                onScrollToIndexFailed={({ index, averageItemLength }) =>
-                  listRef.current?.scrollToOffset({
-                    offset: index * averageItemLength,
-                    animated: false,
-                  })
-                }
-                ListEmptyComponent={
-                  <View style={styles.loading}>
-                    <Icon name="search" color={colors.foregroundMuted} size={24} />
-                    <Text style={styles.muted}>{query ? "没有匹配的更改" : "没有可用仓库"}</Text>
-                    {query ? (
-                      <ToolButton
-                        theme={theme}
-                        label="清除筛选"
-                        text="清除筛选"
-                        onPress={() => setFilter("")}
-                      />
-                    ) : null}
-                  </View>
-                }
-              />
+                contentContainerStyle={[styles.fileListViewport, { width: fileListMinWidth }]}
+                scrollEnabled={tree}
+                showsHorizontalScrollIndicator={tree}
+              >
+                <FlatList
+                  testID="git-file-list"
+                  ref={listRef}
+                  style={styles.list}
+                  contentContainerStyle={styles.listContent}
+                  data={model.rows}
+                  stickyHeaderIndices={repositoryHeaders}
+                  stickyHeaderHiddenOnScroll={false}
+                  renderItem={renderRow}
+                  keyExtractor={(item) => item.key}
+                  initialNumToRender={24}
+                  maxToRenderPerBatch={24}
+                  windowSize={7}
+                  onScrollToIndexFailed={({ index, averageItemLength }) =>
+                    listRef.current?.scrollToOffset({
+                      offset: index * averageItemLength,
+                      animated: false,
+                    })
+                  }
+                  ListEmptyComponent={
+                    <View style={styles.loading}>
+                      <Icon name="search" color={colors.foregroundMuted} size={24} />
+                      <Text style={styles.muted}>{query ? "没有匹配的更改" : "没有可用仓库"}</Text>
+                      {query ? (
+                        <ToolButton
+                          theme={theme}
+                          label="清除筛选"
+                          text="清除筛选"
+                          onPress={() => setFilter("")}
+                        />
+                      ) : null}
+                    </View>
+                  }
+                />
+              </ScrollView>
             )}
             <View style={styles.railSummary}>
               <Text style={[styles.small, styles.fileName]}>{model.entries.length} 个更改</Text>
@@ -1756,6 +1779,7 @@ function makeStyles(theme: PluginTheme) {
     },
     sectionTitle: { color: c.foregroundMuted, fontSize: 11 },
     list: { flex: 1, minHeight: 0 },
+    fileListViewport: { flexGrow: 1, minWidth: "100%" },
     listContent: { paddingBottom: 8 },
     repositoryHeaderBackdrop: { paddingTop: 8, backgroundColor: c.surface1 },
     repositoryCardRow: {
