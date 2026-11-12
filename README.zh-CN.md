@@ -7,7 +7,7 @@
 <p align="center"><strong>在 Paseo 中审阅多仓库变更，提交代码并追溯历史。</strong></p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.1-2DA44E" alt="版本 0.6.1" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.2-2DA44E" alt="版本 0.6.2" /></a>
   <a href="paseo-plugin.json"><img src="https://img.shields.io/badge/Paseo-0.12.0%2B-0078D4" alt="Paseo 0.12.0 及以上" /></a>
 </p>
 

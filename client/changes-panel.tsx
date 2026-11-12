@@ -1326,15 +1326,6 @@ function WorkspaceEditor({
                 />
               </View>
             ) : null}
-            {changes.data?.pending ? (
-              <View
-                testID="git-repositories-loading"
-                style={{ flexDirection: "row", alignItems: "center", padding: 8, gap: 6 }}
-              >
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={styles.muted}>正在读取其余仓库…</Text>
-              </View>
-            ) : null}
             {changes.loading ? (
               <View style={styles.loading}>
                 <ActivityIndicator size="small" color={colors.accent} />

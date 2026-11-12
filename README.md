@@ -7,7 +7,7 @@
 <p align="center"><strong>Review and commit across repositories, without leaving Paseo.</strong></p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.1-2DA44E" alt="Version 0.6.1" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.2-2DA44E" alt="Version 0.6.2" /></a>
   <a href="paseo-plugin.json"><img src="https://img.shields.io/badge/Paseo-0.12.0%2B-0078D4" alt="Paseo 0.12.0 or later" /></a>
 </p>
 
