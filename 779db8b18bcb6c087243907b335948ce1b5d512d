@@ -1,0 +1,76 @@
+client/diff-viewer.tsx
+  f97a6389c576e8d0 5-11,250,253-265,270,282,288
+client/diff-model.ts
+  f97a6389c576e8d0 7-28
+tests/diff-navigation.test.ts
+  f97a6389c576e8d0 1-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.8.2",
+  "base_commit_sha": "779db8b18bcb6c087243907b335948ce1b5d512d",
+  "prompts": {
+    "2c47855c63b8dfcc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cbad-c34a-7e63-8325-0728613e4f20",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 225095,
+        "output_tokens": 18687,
+        "cache_read_tokens": 3070080,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "d3bea3fcd73c3514": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cf14-9aa2-7583-beff-b90b0a0856b7",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 5,
+      "accepted_lines": 4,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/552d56b97bcc4665c3164a45eb51c2c2cc4cd3aac5efe0eca0518e0e7651fdcc",
+      "token_usage": {
+        "input_tokens": 147079,
+        "output_tokens": 25631,
+        "cache_read_tokens": 4831744,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    },
+    "f97a6389c576e8d0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cf13-a6db-7d13-ae6c-d7571ce4e38f",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "李伟民 <liweimin@cvte.com>",
+      "messages": [],
+      "total_additions": 151,
+      "total_deletions": 58,
+      "accepted_lines": 146,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/9b68fa0b9b4de1b66f8f0b1fbe424ca12a48bbc7e3ff21fbe1422abe9d4cb4ae",
+      "token_usage": {
+        "input_tokens": 167503,
+        "output_tokens": 28653,
+        "cache_read_tokens": 5622656,
+        "cache_creation_tokens": null,
+        "total_cost": null
+      }
+    }
+  }
+}
