@@ -4,6 +4,28 @@ export type DiffRow =
   | { key: string; header: string }
   | { key: string; left: DiffLine | null; right: DiffLine | null };
 
+export type DiffRevealState = {
+  path: string;
+  mode: "unified" | "split";
+  wrap: boolean;
+  index: number;
+  request: number;
+  selection: object | null;
+};
+
+export function shouldRevealDiff(previous: DiffRevealState | null, next: DiffRevealState): boolean {
+  return (
+    !previous ||
+    previous.path !== next.path ||
+    previous.mode !== next.mode ||
+    previous.wrap !== next.wrap ||
+    previous.index !== next.index ||
+    previous.request !== next.request ||
+    // A marker click is navigation; clearing its stale rows after refresh is not.
+    (next.selection !== null && previous.selection !== next.selection)
+  );
+}
+
 export function diffChangeTargets(rows: DiffRow[]): number[] {
   const targets: number[] = [];
   let foundChange = false;

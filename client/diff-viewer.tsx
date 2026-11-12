@@ -2,7 +2,13 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { DiffLine, FileDiff } from "../shared/contracts";
-import { buildDiffRows, type DiffRow, diffChangeTargets } from "./diff-model";
+import {
+  buildDiffRows,
+  type DiffRevealState,
+  type DiffRow,
+  diffChangeTargets,
+  shouldRevealDiff,
+} from "./diff-model";
 import { DIFF_OVERVIEW_WIDTH, DiffOverview } from "./diff-overview";
 import { diffChangeRanges, estimateDiffRowHeights } from "./diff-overview-model";
 import { Icon } from "./icons";
@@ -145,7 +151,6 @@ export function DiffViewer({
   }, [rows]);
   const selection =
     selectedRow?.rows === rows && selectedRow.request === navigation.request ? selectedRow : null;
-  const revealRequest = selection ?? navigation;
   const activeIndex = selection?.index ?? targets[navigation.index];
   const activeHunk = selection?.hunk ?? navigation.index;
   const activeTarget = useRef(activeIndex);
@@ -242,30 +247,27 @@ export function DiffViewer({
       ? width
       : Math.max(width, columns * fontSize * 0.65 + (lineNumbers ? gutterWidth * 2 : 0) + 26);
   const textWidth = columns * fontSize * 0.65 + 18;
-  const lastReveal = useRef<{
-    diff: FileDiff;
-    request: number;
-    mode: DiffLayout;
-    wrap: boolean;
-  } | null>(null);
+  const lastReveal = useRef<DiffRevealState | null>(null);
   useEffect(() => {
     if (!listReady) return;
-    const previous = lastReveal.current;
-    lastReveal.current = { diff, request: navigation.request, mode, wrap: effectiveWrap };
-    if (
-      preserveScrollOnRefresh &&
-      previous &&
-      previous.diff !== diff &&
-      previous.diff.path === diff.path &&
-      previous.request === navigation.request &&
-      previous.mode === mode &&
-      previous.wrap === effectiveWrap
-    ) {
+    const next: DiffRevealState = {
+      path: diff.path,
+      index: navigation.index,
+      request: navigation.request,
+      mode,
+      wrap: effectiveWrap,
+      selection,
+    };
+    // One refresh can cause several renders. Only a new navigation intent may
+    // reposition the list, even after the refreshed patch has already arrived.
+    const needsReveal = !preserveScrollOnRefresh || shouldRevealDiff(lastReveal.current, next);
+    lastReveal.current = next;
+    if (!needsReveal) {
       pendingTarget.current = undefined;
       return;
     }
     retries.current = 0;
-    const index = "rows" in revealRequest ? revealRequest.index : targets[revealRequest.index];
+    const index = selection?.index ?? targets[navigation.index];
     pendingTarget.current = index;
     if (index !== undefined) {
       const reveal = () => revealRow(index);
@@ -277,12 +279,13 @@ export function DiffViewer({
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };
   }, [
-    revealRequest,
+    selection,
     targets,
     listReady,
     effectiveWrap,
     revealRow,
     diff,
+    navigation.index,
     navigation.request,
     mode,
     preserveScrollOnRefresh,
