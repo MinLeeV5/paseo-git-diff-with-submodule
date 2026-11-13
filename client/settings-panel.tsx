@@ -5,6 +5,7 @@ import type { PanelSettings } from "../shared/settings";
 import { MAX_CACHED_TABS } from "../shared/tab-cache";
 import { pluginVersion } from "../shared/version";
 import { InputField, setWebTitle, ToolButton } from "./controls";
+import { useT } from "./i18n";
 import { Icon, type IconName } from "./icons";
 import { SettingsSelect } from "./settings-select";
 import { codeFont, panelTokens } from "./theme";
@@ -39,6 +40,7 @@ export function SettingsPanel({
   onClose(): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [active, setActive] = useState<SettingsTab>("appearance");
   const tabRefs = useRef(new Map<SettingsTab, View>());
   const labelStyle = { color: c.foreground, fontSize: 12, lineHeight: 18 };
@@ -134,7 +136,7 @@ export function SettingsPanel({
               <Pressable
                 key={String(option.value)}
                 accessibilityRole="radio"
-                accessibilityLabel={`${label}：${option.label}`}
+                accessibilityLabel={t("{label}：{option}", { label, option: option.label })}
                 accessibilityState={{ checked: selected }}
                 {...(Platform.OS === "web" ? { "aria-checked": selected } : {})}
                 onPress={() => update({ [key]: option.value })}
@@ -208,7 +210,7 @@ export function SettingsPanel({
           backgroundColor: "#00000044",
         }}
       >
-        <Pressable accessibilityLabel="关闭设置背景" onPress={onClose} style={{ flex: 1 }} />
+        <Pressable accessibilityLabel={t("关闭设置背景")} onPress={onClose} style={{ flex: 1 }} />
         <View
           testID="git-settings-panel"
           {...(Platform.OS === "web" ? { dataSet: { pmono: "true" } } : {})}
@@ -242,14 +244,14 @@ export function SettingsPanel({
               accessibilityRole="header"
               style={{ ...labelStyle, fontSize: 13, fontWeight: "600" }}
             >
-              Git 设置
+              {t("Git 设置")}
             </Text>
-            <Text style={{ ...hintStyle, flex: 1 }}>此主机</Text>
-            <ToolButton theme={theme} icon="close" label="关闭设置" onPress={onClose} />
+            <Text style={{ ...hintStyle, flex: 1 }}>{t("此主机")}</Text>
+            <ToolButton theme={theme} icon="close" label={t("关闭设置")} onPress={onClose} />
           </View>
           <View
             accessibilityRole="tablist"
-            accessibilityLabel="设置分类"
+            accessibilityLabel={t("设置分类")}
             style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: c.border }}
           >
             {settingsTabs.map((tab, index) => {
@@ -263,7 +265,7 @@ export function SettingsPanel({
                     else tabRefs.current.delete(tab.id);
                   }}
                   accessibilityRole="tab"
-                  accessibilityLabel={tab.label}
+                  accessibilityLabel={t(tab.label)}
                   accessibilityState={{ selected }}
                   {...(Platform.OS === "web"
                     ? {
@@ -313,7 +315,7 @@ export function SettingsPanel({
                       color: selected ? c.foreground : c.foregroundMuted,
                     }}
                   >
-                    {tab.label}
+                    {t(tab.label)}
                   </Text>
                 </Pressable>
               );
@@ -326,7 +328,7 @@ export function SettingsPanel({
             {...(Platform.OS === "web"
               ? {
                   role: "tabpanel",
-                  "aria-label": activeTab.label,
+                  "aria-label": t(activeTab.label),
                   "aria-labelledby": `git-settings-tab-${active}`,
                 }
               : {})}
@@ -335,35 +337,43 @@ export function SettingsPanel({
           >
             {active === "appearance" ? (
               <>
-                {section("文件浏览", true)}
-                {toggle("sidebarVisible", "显示文件侧栏")}
-                {segmented("tree", "文件排列", [
-                  { value: false, label: "列表" },
-                  { value: true, label: "目录树" },
+                {section(t("语言"), true)}
+                {select("language", t("语言"), [
+                  { value: "en", label: "English" },
+                  { value: "zh-CN", label: "简体中文" },
                 ])}
-                <Text style={hintStyle}>同时应用于变更文件和提交图中的文件列表。</Text>
-                {segmented("scrollbar", "滚动条", [
-                  { value: "thin", label: "纤细" },
-                  { value: "auto", label: "系统" },
+                <Text style={hintStyle}>
+                  {t("界面与提示语言，提交信息生成提示词会跟随所选语言。")}
+                </Text>
+                {section(t("文件浏览"))}
+                {toggle("sidebarVisible", t("显示文件侧栏"))}
+                {segmented("tree", t("文件排列"), [
+                  { value: false, label: t("列表") },
+                  { value: true, label: t("目录树") },
+                ])}
+                <Text style={hintStyle}>{t("同时应用于变更文件和提交图中的文件列表。")}</Text>
+                {segmented("scrollbar", t("滚动条"), [
+                  { value: "thin", label: t("纤细") },
+                  { value: "auto", label: t("系统") },
                 ])}
                 <Text style={{ ...hintStyle, marginTop: 14 }}>
-                  拖动侧栏边缘或左右对比中线可调整宽度，松手后自动记住。
+                  {t("拖动侧栏边缘或左右对比中线可调整宽度，松手后自动记住。")}
                 </Text>
               </>
             ) : active === "code" ? (
               <>
-                {section("字体", true)}
-                {select("fontFamily", "代码字体", [
-                  { value: "paseo", label: "Paseo 默认" },
+                {section(t("字体"), true)}
+                {select("fontFamily", t("代码字体"), [
+                  { value: "paseo", label: t("Paseo 默认") },
                   { value: "vscode", label: "VS Code" },
                   { value: "jetbrains", label: "JetBrains Mono" },
-                  { value: "custom", label: "自定义" },
+                  { value: "custom", label: t("自定义") },
                 ])}
                 {values.fontFamily === "custom" ? (
                   <InputField
                     theme={theme}
-                    accessibilityLabel="自定义代码字体"
-                    placeholder="例如：SF Mono, Menlo"
+                    accessibilityLabel={t("自定义代码字体")}
+                    placeholder={t("例如：SF Mono, Menlo")}
                     placeholderTextColor={c.foregroundMuted}
                     value={values.customFontFamily}
                     maxLength={160}
@@ -380,16 +390,16 @@ export function SettingsPanel({
                 <View style={{ flexDirection: "row", gap: 12 }}>
                   {select(
                     "fontSize",
-                    "字号",
+                    t("字号"),
                     Array.from({ length: 11 }, (_, index) => ({
                       value: index + 10,
                       label: `${index + 10} px`,
                     })),
                   )}
-                  {select("fontWeight", "字重", [
-                    { value: "400", label: "常规 · 400" },
-                    { value: "500", label: "中等 · 500" },
-                    { value: "600", label: "加粗 · 600" },
+                  {select("fontWeight", t("字重"), [
+                    { value: "400", label: t("常规 · 400") },
+                    { value: "500", label: t("中等 · 500") },
+                    { value: "600", label: t("加粗 · 600") },
                   ])}
                 </View>
                 <View
@@ -416,60 +426,63 @@ export function SettingsPanel({
                       lineHeight: values.fontSize + 7,
                     }}
                   >
-                    {"const message = 'Hello, Paseo';\n// 字体预览 0123456789"}
+                    {t("const message = 'Hello, Paseo';\n// 字体预览 0123456789")}
                   </Text>
                 </View>
                 <Text style={{ ...hintStyle, marginTop: 6 }}>
-                  使用已安装字体；不可用时回退到系统等宽字体。
+                  {t("使用已安装字体；不可用时回退到系统等宽字体。")}
                 </Text>
-                {section("代码显示")}
-                {toggle("syntaxHighlight", "语法着色")}
-                {toggle("lineNumbers", "显示行号")}
-                {toggle("wrap", "自动换行")}
+                {section(t("代码显示"))}
+                {toggle("syntaxHighlight", t("语法着色"))}
+                {toggle("lineNumbers", t("显示行号"))}
+                {toggle("wrap", t("自动换行"))}
                 {select(
                   "tabSize",
-                  "Tab 宽度",
-                  [2, 4, 8].map((value) => ({ value: value as 2 | 4 | 8, label: `${value} 空格` })),
+                  t("Tab 宽度"),
+                  [2, 4, 8].map((value) => ({
+                    value: value as 2 | 4 | 8,
+                    label: t("{value} 空格", { value }),
+                  })),
                 )}
               </>
             ) : active === "comparison" ? (
               <>
-                {section("差异视图", true)}
-                {segmented("comparison", "比较范围", [
-                  { value: "head", label: "全部" },
-                  { value: "staged", label: "已暂存" },
-                  { value: "unstaged", label: "未暂存" },
+                {section(t("差异视图"), true)}
+                {segmented("comparison", t("比较范围"), [
+                  { value: "head", label: t("全部") },
+                  { value: "staged", label: t("已暂存") },
+                  { value: "unstaged", label: t("未暂存") },
                 ])}
-                {segmented("mode", "差异布局", [
-                  { value: "split", label: "左右" },
-                  { value: "unified", label: "统一" },
+                {segmented("mode", t("差异布局"), [
+                  { value: "split", label: t("左右") },
+                  { value: "unified", label: t("统一") },
                 ])}
-                {select("context", "上下文", [
-                  { value: 3, label: "3 行" },
-                  { value: 20, label: "20 行" },
-                  { value: 1000000, label: "全文" },
+                {select("context", t("上下文"), [
+                  { value: 3, label: t("3 行") },
+                  { value: 20, label: t("20 行") },
+                  { value: 1000000, label: t("全文") },
                 ])}
-                {toggle("ignoreWhitespace", "忽略空白变化")}
+                {toggle("ignoreWhitespace", t("忽略空白变化"))}
               </>
             ) : active === "commit" ? (
               <>
-                {section("提交信息", true)}
-                {select("commitMessageGenerator", "生成方式", [
+                {section(t("提交信息"), true)}
+                {select("commitMessageGenerator", t("生成方式"), [
                   { value: "paseo", label: "Paseo AI" },
-                  { value: "local", label: "本地文件规则" },
+                  { value: "local", label: t("本地文件规则") },
                 ])}
                 <Text style={hintStyle}>
                   {values.commitMessageGenerator === "paseo"
-                    ? "沿用 Paseo 的元数据模型与认证。生成后填入单行草稿，可编辑后再提交。"
-                    : "按文件名与变更类型生成，不调用 AI。"}
+                    ? t("沿用 Paseo 的元数据模型与认证。生成后填入单行草稿，可编辑后再提交。")
+                    : t("按文件名与变更类型生成，不调用 AI。")}
                 </Text>
                 {values.commitMessageGenerator === "paseo" ? (
                   <View style={{ gap: 8, marginTop: 18 }}>
-                    <Text style={labelStyle}>自定义提示词</Text>
+                    <Text style={labelStyle}>{t("自定义提示词")}</Text>
                     <InputField
                       theme={theme}
-                      accessibilityLabel="提交信息生成提示词"
-                      placeholder="例如：用中文，遵循 Conventional Commits，说明变更目的。"
+                      accessibilityLabel={t("提交信息生成提示词")}
+                      placeholder={t("例如：用中文，遵循 Conventional Commits，说明变更目的。")}
                       value={values.commitMessageInstructions}
                       onChangeText={(value) => update({ commitMessageInstructions: value })}
                       maxLength={8000}
@@ -481,48 +494,56 @@ export function SettingsPanel({
                       style={{ minHeight: 112 }}
                     />
                     <Text style={hintStyle}>
-                      留空时使用各仓库 paseo.json 中的
-                      metadataGeneration.commitMessage.instructions；未配置时使用默认提示词。
+                      {t(
+                        "留空时使用各仓库 paseo.json 中的 metadataGeneration.commitMessage.instructions；未配置时使用默认提示词。",
+                      )}
                     </Text>
-                    <Text style={hintStyle}>此提示词保存在当前主机，适用于所有仓库。</Text>
+                    <Text style={hintStyle}>{t("此提示词保存在当前主机，适用于所有仓库。")}</Text>
                   </View>
                 ) : null}
               </>
             ) : (
               <>
-                {section("打开面板", true)}
-                {segmented("defaultView", "默认进入", workspaceViews)}
-                <Text style={hintStyle}>下次打开 Git 面板时生效。</Text>
-                {section("标签缓存")}
+                {section(t("打开面板"), true)}
+                {segmented(
+                  "defaultView",
+                  t("默认进入"),
+                  workspaceViews.map((view) => ({ ...view, label: t(view.label) })),
+                )}
+                <Text style={hintStyle}>{t("下次打开 Git 面板时生效。")}</Text>
+                {section(t("标签缓存"))}
                 {select(
                   "tabCacheSize",
-                  "缓存标签数量",
+                  t("缓存标签数量"),
                   Array.from({ length: MAX_CACHED_TABS }, (_, index) => ({
                     value: index + 1,
-                    label: `${index + 1} 个${index === 4 ? " · 默认" : ""}`,
+                    label: t("{count} 个{suffix}", {
+                      count: index + 1,
+                      suffix: index === 4 ? ` · ${t("默认")}` : "",
+                    }),
                   })),
                 )}
                 <Text style={hintStyle}>
-                  保留最近访问标签的内容和滚动位置；大文件或图表较多时会提前释放较早的缓存。
+                  {t("保留最近访问标签的内容和滚动位置；大文件或图表较多时会提前释放较早的缓存。")}
                 </Text>
-                {section("文件预览")}
-                {toggle("previewDefault", "优先打开预览", "适用于 Markdown、HTML 和图片。")}
+                {section(t("文件预览"))}
+                {toggle("previewDefault", t("优先打开预览"), t("适用于 Markdown、HTML 和图片。"))}
                 <Text style={hintStyle}>
-                  Markdown 支持 Mermaid。在文件工具栏随时切换预览与差异。
+                  {t("Markdown 支持 Mermaid。在文件工具栏随时切换预览与差异。")}
                 </Text>
-                {section("Git 状态")}
-                {toggle("automatic", "自动刷新 Git 状态")}
+                {section(t("Git 状态"))}
+                {toggle("automatic", t("自动刷新 Git 状态"))}
                 {select(
                   "refreshInterval",
-                  "刷新间隔",
+                  t("刷新间隔"),
                   [2000, 5000, 10000, 30000].map((value) => ({
                     value: value as 2000 | 5000 | 10000 | 30000,
-                    label: `${value / 1000} 秒`,
+                    label: t("{seconds} 秒", { seconds: value / 1000 }),
                   })),
                   !values.automatic,
                 )}
                 {!values.automatic ? (
-                  <Text style={hintStyle}>已暂停自动刷新，仍可在文件侧栏手动刷新。</Text>
+                  <Text style={hintStyle}>{t("已暂停自动刷新，仍可在文件侧栏手动刷新。")}</Text>
                 ) : null}
               </>
             )}
@@ -541,9 +562,9 @@ export function SettingsPanel({
               <Text style={{ color: c.statusDanger, fontSize: 11, lineHeight: 17 }}>{error}</Text>
               <ToolButton
                 theme={theme}
-                label="重试保存设置"
+                label={t("重试保存设置")}
                 icon="refresh"
-                text="重试"
+                text={t("重试")}
                 onPress={retry}
               />
             </View>
@@ -565,22 +586,27 @@ export function SettingsPanel({
               color={error ? c.statusDanger : c.foregroundMuted}
             />
             <Text
-              ref={(node) => setWebTitle(node, "设置自动保存到当前 Paseo 主机")}
+              ref={(node) => setWebTitle(node, t("设置自动保存到当前 Paseo 主机"))}
               accessibilityLiveRegion="polite"
               style={{ color: c.foregroundMuted, fontSize: 11, flex: 1 }}
             >
-              {saving ? "正在保存…" : error ? "尚未保存" : "已保存"}
+              {saving ? t("正在保存…") : error ? t("尚未保存") : t("已保存")}
             </Text>
             <Text
               testID="git-plugin-version"
               ref={(node) => setWebTitle(node, `GitLens v${pluginVersion}`)}
-              accessibilityLabel={`插件版本 ${pluginVersion}`}
+              accessibilityLabel={t("插件版本 {version}", { version: pluginVersion })}
               selectable
               style={{ color: c.foregroundMuted, fontSize: 11, fontVariant: ["tabular-nums"] }}
             >
               v{pluginVersion}
             </Text>
-            <ToolButton theme={theme} label="恢复默认设置" text="恢复默认" onPress={reset} />
+            <ToolButton
+              theme={theme}
+              label={t("恢复默认设置")}
+              text={t("恢复默认")}
+              onPress={reset}
+            />
           </View>
         </View>
       </View>

@@ -111,7 +111,7 @@ it("shows icon-only shortcuts on load without selecting the command and opens ea
     "workspace-b",
   ]);
   for (const { contribution } of app.headers) {
-    expect(contribution.button).toMatchObject({ title: "打开 GitLens", icon: "GitCompare" });
+    expect(contribution.button).toMatchObject({ title: "Open GitLens", icon: "GitCompare" });
     expect(contribution.button.label).toBeUndefined();
     if (contribution.button.behavior.kind !== "action") throw new Error("Expected an action");
     contribution.button.behavior.onPress();

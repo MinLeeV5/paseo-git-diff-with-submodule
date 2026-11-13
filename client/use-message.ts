@@ -1,8 +1,9 @@
 import { type ToastVariant, useToast } from "@getpaseo/plugin/client/react-native";
 import { useCallback, useEffect, useRef } from "react";
+import { type Translate, tZh } from "../shared/i18n";
 
-export function repositoryLabel(id: string) {
-  return id === "." ? "主仓库" : id;
+export function repositoryLabel(id: string, t: Translate = tZh) {
+  return id === "." ? t("主仓库") : id;
 }
 
 export function briefError(error: unknown) {

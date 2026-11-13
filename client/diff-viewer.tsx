@@ -11,6 +11,7 @@ import {
 } from "./diff-model";
 import { DIFF_OVERVIEW_WIDTH, DiffOverview } from "./diff-overview";
 import { diffChangeRanges, estimateDiffRowHeights } from "./diff-overview-model";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import { diffSyntaxStates, languageForPath } from "./syntax";
 import { SyntaxText } from "./syntax-text";
@@ -68,6 +69,7 @@ export function DiffViewer({
     [theme, fontSize, fontFamily, fontWeight],
   );
   const colors = useMemo(() => panelTokens(theme), [theme]);
+  const t = useT();
   const language = useMemo(() => languageForPath(diff.path), [diff.path]);
   const syntaxStates = useMemo(
     () =>
@@ -459,10 +461,10 @@ export function DiffViewer({
         />
         <Text style={styles.messageTitle}>
           {diff.state === "binary"
-            ? "二进制文件已更改"
+            ? t("二进制文件已更改")
             : diff.state === "too_large"
-              ? "文件过大"
-              : "没有文本差异"}
+              ? t("文件过大")
+              : t("没有文本差异")}
         </Text>
         <Text selectable style={styles.muted}>
           {diff.message}
@@ -525,10 +527,10 @@ export function DiffViewer({
           style={[styles.columnHeaders, ranges.length > 0 && { paddingRight: DIFF_OVERVIEW_WIDTH }]}
         >
           <View style={[styles.columnHeading, { width: `${ratio * 100}%` }]}>
-            <Text style={styles.columnLabel}>原始 · {from}</Text>
+            <Text style={styles.columnLabel}>{t("原始 · {side}", { side: t(from) })}</Text>
           </View>
           <View style={[styles.columnHeading, { width: `${(1 - ratio) * 100}%` }]}>
-            <Text style={styles.columnLabel}>修改 · {to}</Text>
+            <Text style={styles.columnLabel}>{t("修改 · {side}", { side: t(to) })}</Text>
           </View>
         </View>
       ) : null}
@@ -536,7 +538,7 @@ export function DiffViewer({
         <View style={styles.longLineNotice}>
           <Icon name="info" size={12} color={colors.foregroundMuted} />
           <Text style={styles.columnLabel}>
-            超长行显示前 2000 字符；开启自动换行可查看完整内容。
+            {t("超长行显示前 2000 字符；开启自动换行可查看完整内容。")}
           </Text>
         </View>
       ) : null}
@@ -581,7 +583,7 @@ export function DiffViewer({
               key={side === 0 ? "original" : "modified"}
               horizontal
               testID={side === 0 ? "diff-original-scroll" : "diff-modified-scroll"}
-              accessibilityLabel={side === 0 ? "原始代码横向滚动" : "修改代码横向滚动"}
+              accessibilityLabel={t(side === 0 ? "原始代码横向滚动" : "修改代码横向滚动")}
               style={{ flex: fraction, minWidth: 0, height: 12 }}
               scrollEventThrottle={16}
               onScroll={(event) => {

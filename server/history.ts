@@ -6,6 +6,7 @@ import type {
   GitRef,
   HistoryInput,
 } from "../shared/history-contracts";
+import { type Translate, tZh } from "../shared/i18n";
 import { DIFF_OPTIONS, GitError, git } from "./git";
 import { parseHunks, parseNameStatus, parseNumstat } from "./parsers";
 import { digest, MAX_FILE_BYTES } from "./repositories";
@@ -21,7 +22,11 @@ function parseCommits(output: string): GitCommit[] {
 }
 const commitFormat = "%H%x00%P%x00%an%x00%ae%x00%aI%x00%s";
 
-export async function readHistory(directory: string, input: HistoryInput): Promise<GitHistory> {
+export async function readHistory(
+  directory: string,
+  input: HistoryInput,
+  t: Translate = tZh,
+): Promise<GitHistory> {
   const [headOutput, branchOutput, refOutput] = await Promise.all([
     git(directory, ["rev-parse", "--verify", "--quiet", "HEAD"], { acceptDifference: true }),
     git(directory, ["symbolic-ref", "--quiet", "--short", "HEAD"], { acceptDifference: true }),
@@ -56,7 +61,7 @@ export async function readHistory(directory: string, input: HistoryInput): Promi
   }
   const selected = refs.find((ref) => ref.fullName === input.ref);
   if (!["all", "head"].includes(input.ref) && !selected)
-    throw new Error("分支或标签已不存在，请刷新提交图。");
+    throw new Error(t("分支或标签已不存在，请刷新提交图。"));
   const tips = [
     ...new Set(
       input.ref === "all"
@@ -70,7 +75,7 @@ export async function readHistory(directory: string, input: HistoryInput): Promi
   ].sort();
   const revision = digest([tips, head, branch, refs, input.ref]);
   if (input.offset && input.revision !== revision)
-    throw new Error("提交历史已变化，请刷新后继续加载。");
+    throw new Error(t("提交历史已变化，请刷新后继续加载。"));
   if (!tips.length) return { commits: [], refs, head, branch, revision, hasMore: false };
   // Use the captured object ids so a moving ref cannot change this page midway through a read.
   const output = await git(directory, [
@@ -97,7 +102,11 @@ export async function readHistory(directory: string, input: HistoryInput): Promi
   };
 }
 
-export async function readCommit(directory: string, oid: string): Promise<CommitDetails> {
+export async function readCommit(
+  directory: string,
+  oid: string,
+  t: Translate = tZh,
+): Promise<CommitDetails> {
   const [output, raw] = await Promise.all([
     git(directory, [
       "show",
@@ -112,7 +121,7 @@ export async function readCommit(directory: string, oid: string): Promise<Commit
   ]);
   const fields = output.split("\0");
   const [commit] = parseCommits(fields.slice(0, 6).join("\0"));
-  if (!commit || commit.oid !== oid) throw new Error("提交不存在，请刷新提交图。");
+  if (!commit || commit.oid !== oid) throw new Error(t("提交不存在，请刷新提交图。"));
   // Pretty formats hide parents at shallow boundaries. Read the actual header
   // so a missing parent never makes an ordinary commit look like a root diff.
   commit.parents = [
@@ -134,7 +143,7 @@ export async function readCommit(directory: string, oid: string): Promise<Commit
     } catch {
       return {
         ...details,
-        diffMessage: "父提交尚未在本地可用（可能是浅克隆），无法读取本次提交的文件差异。",
+        diffMessage: t("父提交尚未在本地可用（可能是浅克隆），无法读取本次提交的文件差异。"),
       };
     }
   }
@@ -178,9 +187,10 @@ export async function readCommitDiff(
   path: string,
   context: number,
   ignoreWhitespace: boolean,
+  t: Translate = tZh,
 ): Promise<FileDiff> {
   const file = commit.files.find((file) => file.path === path);
-  if (!file) throw new Error("文件不在该提交的变更列表中。");
+  if (!file) throw new Error(t("文件不在该提交的变更列表中。"));
   const result: FileDiff = {
     path,
     ...(file.oldPath ? { oldPath: file.oldPath } : {}),
@@ -204,7 +214,7 @@ export async function readCommitDiff(
     return {
       ...result,
       state: "too_large",
-      message: "历史文件超过 1 MiB，请在本地 Git 工具中查看完整内容。",
+      message: t("历史文件超过 1 MiB，请在本地 Git 工具中查看完整内容。"),
     };
   const paths = file.oldPath ? [file.oldPath, path] : [path];
   let patch: string;
@@ -230,12 +240,17 @@ export async function readCommitDiff(
       return {
         ...result,
         state: "too_large",
-        message: "补丁超过 2 MiB，请在本地 Git 工具中查看完整内容。",
+        message: t("补丁超过 2 MiB，请在本地 Git 工具中查看完整内容。"),
       };
     throw error;
   }
   if (file.binary || /^Binary files .* differ$/m.test(patch) || /^GIT binary patch$/m.test(patch))
-    return { ...result, state: "binary", patch, message: "二进制文件已变化，无法显示文本行差异。" };
+    return {
+      ...result,
+      state: "binary",
+      patch,
+      message: t("二进制文件已变化，无法显示文本行差异。"),
+    };
   const hunks = parseHunks(patch);
   return {
     ...result,
@@ -245,7 +260,7 @@ export async function readCommitDiff(
     message: hunks.length
       ? null
       : patch
-        ? "仅文件名、类型、子模块指针或权限等元数据发生变化。"
-        : "当前选项下没有文本差异。",
+        ? t("仅文件名、类型、子模块指针或权限等元数据发生变化。")
+        : t("当前选项下没有文本差异。"),
   };
 }

@@ -2,6 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { setWebTitle } from "./controls";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import { panelTokens } from "./theme";
 import { workspaceViews as views, type WorkspaceView } from "./workspace-views";
@@ -20,13 +21,14 @@ export function ViewSwitcher({
   theme: PluginTheme;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const { width, height } = useWindowDimensions();
   const selected = views.find((item) => item.value === value) ?? views[0];
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState<WorkspaceView | "trigger" | null>(null);
   const [focused, setFocused] = useState<WorkspaceView | "trigger" | null>(null);
   const items = useRef(new Map<WorkspaceView, View>());
-  const label = `切换 Git 视图，当前：${selected.label}`;
+  const label = t("切换 Git 视图，当前：{label}", { label: t(selected.label) });
   const triggerRef = useCallback(
     (node: View | null) => {
       buttonRef.current = node;
@@ -99,7 +101,7 @@ export function ViewSwitcher({
             />
             <View
               accessibilityRole="menu"
-              accessibilityLabel="Git 视图"
+              accessibilityLabel={t("Git 视图")}
               {...(Platform.OS === "web"
                 ? {
                     onKeyDown: (event: {
@@ -161,7 +163,7 @@ export function ViewSwitcher({
                       )?.setAttribute?.("role", "menuitemradio");
                   }}
                   accessibilityRole="menuitem"
-                  accessibilityLabel={item.label}
+                  accessibilityLabel={t(item.label)}
                   accessibilityState={{ checked: item.value === value }}
                   {...(Platform.OS === "web"
                     ? {
@@ -192,7 +194,7 @@ export function ViewSwitcher({
                 >
                   <Icon name={item.icon} size={15} color={c.foregroundMuted} />
                   <Text style={{ flex: 1, color: c.foreground, fontFamily: c.ui, fontSize: 12 }}>
-                    {item.label}
+                    {t(item.label)}
                   </Text>
                   {item.value === value ? <Icon name="check" size={14} color={c.accent} /> : null}
                 </Pressable>

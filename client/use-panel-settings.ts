@@ -2,6 +2,7 @@ import { settingsRpc } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { defaultSettings, type PanelSettings, panelSettingsSchema } from "../shared/settings";
+import { useT } from "./i18n";
 import { useMessage } from "./use-message";
 
 const contracts = settingsRpc("git-panel");
@@ -14,6 +15,7 @@ export function usePanelSettings() {
   const read = useRpc(contracts.read);
   const write = useRpc(contracts.write);
   const message = useMessage();
+  const t = useT();
   const [values, setValues] = useState(defaultSettings);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,7 +42,7 @@ export function usePanelSettings() {
       if (result.status !== "ready") {
         revision.current = result.revision;
         setLoaded(true);
-        setError(`${result.error}；可在设置中恢复默认。`);
+        setError(t("{error}；可在设置中恢复默认。", { error: result.error }));
         return;
       }
       stored.current = panelSettingsSchema.parse(result.values);
@@ -52,7 +54,7 @@ export function usePanelSettings() {
     } catch (failure) {
       if (alive.current) setError(failure instanceof Error ? failure.message : String(failure));
     }
-  }, [read]);
+  }, [read, t]);
   useEffect(() => {
     void reload();
   }, [reload]);
@@ -89,7 +91,7 @@ export function usePanelSettings() {
           stored.current = panelSettingsSchema.parse(fresh.values);
           revision.current = fresh.revision;
         }
-        if (!saved) throw new Error("设置同时被其他面板修改，请重试保存。");
+        if (!saved) throw new Error(t("设置同时被其他面板修改，请重试保存。"));
         if (alive.current) {
           setValues({ ...stored.current, ...pending.current });
           setError(null);
@@ -101,7 +103,7 @@ export function usePanelSettings() {
             )
           ) {
             resetRequested.current = false;
-            message("已恢复默认设置。", "success");
+            message(t("已恢复默认设置。"), "success");
           }
         }
       } catch (failure) {
@@ -122,7 +124,7 @@ export function usePanelSettings() {
         else await flush();
       }
     },
-    [read, write, message],
+    [read, write, message, t],
   );
   const flushRef = useRef(flush);
   flushRef.current = flush;

@@ -14,6 +14,7 @@ import type { CommitDetails } from "../shared/history-contracts";
 import { buildFileRows, type FileRow, statusLabels } from "./changes-model";
 import { setWebTitle, ToolButton } from "./controls";
 import { DiffViewer } from "./diff-viewer";
+import { useT } from "./i18n";
 import { fileAppearance, Icon } from "./icons";
 import { codeFont, panelTokens } from "./theme";
 import { useCommitDiff } from "./use-history";
@@ -33,6 +34,7 @@ export function HistoryNotice({
   busy?: boolean;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   return (
     <View
       style={{
@@ -70,7 +72,13 @@ export function HistoryNotice({
         </Text>
       ) : null}
       {retry ? (
-        <ToolButton theme={theme} label="重试" text="重试" icon="refresh" onPress={retry} />
+        <ToolButton
+          theme={theme}
+          label={t("重试")}
+          text={t("重试")}
+          icon="refresh"
+          onPress={retry}
+        />
       ) : null}
     </View>
   );
@@ -90,6 +98,7 @@ function CommitFile({
   onPress(): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const color =
@@ -103,11 +112,11 @@ function CommitFile({
       ref={(node) =>
         setWebTitle(
           node,
-          `${file.oldPath ? `${file.oldPath} → ` : ""}${file.path}\n${statusLabels[file.status].label} · 查看本次提交差异`,
+          `${file.oldPath ? `${file.oldPath} → ` : ""}${file.path}\n${t("{status} · 查看本次提交差异", { status: t(statusLabels[file.status].label) })}`,
         )
       }
       accessibilityRole="button"
-      accessibilityLabel={`查看提交文件 ${file.path} 的差异`}
+      accessibilityLabel={t("查看提交文件 {path} 的差异", { path: file.path })}
       onPress={onPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
@@ -143,7 +152,7 @@ function CommitFile({
         {(tree ? file.path.split("/").at(-1) : file.path)?.replace(/[\n\r\t]/g, " ")}
       </Text>
       {file.binary ? (
-        <Text style={{ fontSize: 10, color: c.foregroundMuted }}>二进制</Text>
+        <Text style={{ fontSize: 10, color: c.foregroundMuted }}>{t("二进制")}</Text>
       ) : (
         <>
           <Text style={{ color: c.statusSuccess, fontSize: 10, fontFamily: c.mono }}>
@@ -172,13 +181,17 @@ function CommitFolder({
   onToggle(): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
       ref={(node) => setWebTitle(node, item.path)}
       accessibilityRole="button"
-      accessibilityLabel={`${collapsed ? "展开" : "收起"}提交目录 ${item.path}`}
+      accessibilityLabel={t("{action}提交目录 {path}", {
+        action: collapsed ? t("展开") : t("收起"),
+        path: item.path,
+      })}
       accessibilityState={{ expanded: !collapsed }}
       {...(Platform.OS === "web" ? { "aria-expanded": !collapsed } : {})}
       onPress={onToggle}
@@ -226,6 +239,7 @@ export function CommitSummary({
   onSelectParent(oid: string): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const rows = useMemo(
     () => buildFileRows(commit.oid, commit.files, tree, collapsed),
@@ -272,30 +286,32 @@ export function CommitSummary({
           {new Date(commit.date).toLocaleString()}
         </Text>
         <Text selectable style={{ color: c.foreground, fontSize: 12, lineHeight: 20 }}>
-          {commit.message || "（无提交说明）"}
+          {commit.message || t("（无提交说明）")}
         </Text>
         <Text selectable style={{ color: c.foregroundMuted, fontFamily: c.mono, fontSize: 10 }}>
           {commit.oid}
         </Text>
         {commit.parents.length ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-            <Text style={{ fontSize: 10, color: c.foregroundMuted }}>父提交</Text>
+            <Text style={{ fontSize: 10, color: c.foregroundMuted }}>{t("父提交")}</Text>
             {commit.parents.map((parent) => (
               <ToolButton
                 key={parent}
                 theme={theme}
-                label={`查看父提交 ${parent.slice(0, 8)}`}
+                label={t("查看父提交 {oid}", { oid: parent.slice(0, 8) })}
                 text={parent.slice(0, 8)}
                 onPress={() => onSelectParent(parent)}
               />
             ))}
           </View>
         ) : (
-          <Text style={{ fontSize: 10, color: c.foregroundMuted }}>初始提交 · 与空树比较</Text>
+          <Text style={{ fontSize: 10, color: c.foregroundMuted }}>
+            {t("初始提交 · 与空树比较")}
+          </Text>
         )}
         {commit.committer !== commit.author || commit.committerEmail !== commit.email ? (
           <Text selectable style={{ color: c.foregroundMuted, fontSize: 10 }}>
-            提交者 {commit.committer} &lt;{commit.committerEmail}&gt;
+            {t("提交者")} {commit.committer} &lt;{commit.committerEmail}&gt;
           </Text>
         ) : null}
       </ScrollView>
@@ -312,7 +328,7 @@ export function CommitSummary({
           }}
         >
           <Text style={{ color: c.foreground, fontSize: 11, fontWeight: "600" }}>
-            {commit.files.length} 个文件
+            {t("{count} 个文件", { count: commit.files.length })}
           </Text>
           <Text style={{ color: c.statusSuccess, fontFamily: c.mono, fontSize: 10 }}>
             +{additions}
@@ -324,12 +340,12 @@ export function CommitSummary({
             numberOfLines={1}
             style={{ flex: 1, textAlign: "right", color: c.foregroundMuted, fontSize: 10 }}
           >
-            {commit.parents.length > 1 ? "与第一父提交比较" : "点击文件查看差异"}
+            {commit.parents.length > 1 ? t("与第一父提交比较") : t("点击文件查看差异")}
           </Text>
           <ToolButton
             theme={theme}
             icon={tree ? "list" : "tree"}
-            label={tree ? "以列表显示提交文件" : "以目录树显示提交文件"}
+            label={tree ? t("以列表显示提交文件") : t("以目录树显示提交文件")}
             onPress={() => onTreeChange(!tree)}
           />
         </View>
@@ -370,8 +386,8 @@ export function CommitSummary({
         ) : (
           <HistoryNotice
             theme={theme}
-            title={commit.diffMessage ? "无法读取文件差异" : "此提交没有文件变化"}
-            description={commit.diffMessage ?? "这是一个空提交。"}
+            title={commit.diffMessage ? t("无法读取文件差异") : t("此提交没有文件变化")}
+            description={commit.diffMessage ?? t("这是一个空提交。")}
           />
         )}
       </View>
@@ -399,6 +415,7 @@ export function CommitDiff({
   onBack(): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const settings = preferences.values;
   const patch = useCommitDiff(
     directory,
@@ -429,7 +446,7 @@ export function CommitDiff({
           borderBottomColor: c.border,
         }}
       >
-        <ToolButton theme={theme} icon="back" label="返回提交详情（Esc）" onPress={onBack} />
+        <ToolButton theme={theme} icon="back" label={t("返回提交详情（Esc）")} onPress={onBack} />
         <Icon
           name={fileAppearance(path, c.foregroundMuted).icon}
           color={c.foregroundMuted}
@@ -441,7 +458,7 @@ export function CommitDiff({
         <ToolButton
           theme={theme}
           icon={mode === "split" ? "split" : "unified"}
-          label="切换历史差异布局"
+          label={t("切换历史差异布局")}
           disabled={width < 650}
           onPress={() =>
             preferences.update({ mode: settings.mode === "split" ? "unified" : "split" })
@@ -450,7 +467,7 @@ export function CommitDiff({
         <ToolButton
           theme={theme}
           icon="up"
-          label="上一个历史差异块"
+          label={t("上一个历史差异块")}
           disabled={!count}
           onPress={() => moveHunk(-1)}
         />
@@ -460,7 +477,7 @@ export function CommitDiff({
         <ToolButton
           theme={theme}
           icon="down"
-          label="下一个历史差异块"
+          label={t("下一个历史差异块")}
           disabled={!count}
           onPress={() => moveHunk(1)}
         />
@@ -468,7 +485,7 @@ export function CommitDiff({
       {patch.error ? (
         <HistoryNotice
           theme={theme}
-          title="读取历史差异失败"
+          title={t("读取历史差异失败")}
           description={patch.error}
           retry={patch.retry}
         />
@@ -480,7 +497,7 @@ export function CommitDiff({
           wrap={settings.wrap}
           navigation={navigation}
           onHunkChange={(index) => setNavigation((previous) => ({ ...previous, index }))}
-          from={commit.parents[0]?.slice(0, 8) ?? "空树"}
+          from={commit.parents[0]?.slice(0, 8) ?? t("空树")}
           to={commit.oid.slice(0, 8)}
           syntaxHighlight={settings.syntaxHighlight}
           fontSize={settings.fontSize}
@@ -493,7 +510,7 @@ export function CommitDiff({
           lineNumbers={settings.lineNumbers}
         />
       ) : (
-        <HistoryNotice theme={theme} busy title="正在读取历史差异…" />
+        <HistoryNotice theme={theme} busy title={t("正在读取历史差异…")} />
       )}
     </View>
   );

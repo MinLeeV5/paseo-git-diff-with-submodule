@@ -4,6 +4,7 @@ import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { setWebTitle, ToolButton } from "./controls";
 import type { EditorTab } from "./editor-model";
 import type { FileMenuTarget } from "./file-menu";
+import { useT } from "./i18n";
 import { fileAppearance, Icon } from "./icons";
 import { panelTokens } from "./theme";
 
@@ -33,6 +34,7 @@ export function EditorTabs({
   settingsError: boolean;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const scroll = useRef<ScrollView>(null);
   const offset = useRef(0);
   const viewport = useRef(0);
@@ -100,7 +102,7 @@ export function EditorTabs({
       >
         <View
           accessibilityRole="tablist"
-          accessibilityLabel="打开的文件，支持滚轮与触控板横向滚动"
+          accessibilityLabel={t("打开的文件，支持滚轮与触控板横向滚动")}
           style={{ flexDirection: "row", minHeight: 30 }}
         >
           {tabs.map((tab) => {
@@ -149,7 +151,10 @@ export function EditorTabs({
                 <Pressable
                   ref={(node) => setWebTitle(node, `${tab.repositoryId} / ${tab.path}`)}
                   accessibilityRole="tab"
-                  accessibilityLabel={`打开标签 ${tab.path}（${tab.repositoryId}）`}
+                  accessibilityLabel={t("打开标签 {path}（{repository}）", {
+                    path: tab.path,
+                    repository: tab.repositoryId,
+                  })}
                   accessibilityState={{ selected }}
                   {...(Platform.OS === "web"
                     ? { title: `${tab.repositoryId} / ${tab.path}`, "aria-selected": selected }
@@ -197,7 +202,10 @@ export function EditorTabs({
                 </Pressable>
                 <ToolButton
                   theme={theme}
-                  label={`关闭标签 ${tab.path}（${tab.repositoryId}）`}
+                  label={t("关闭标签 {path}（{repository}）", {
+                    path: tab.path,
+                    repository: tab.repositoryId,
+                  })}
                   icon="close"
                   onPress={() => onClose(tab.key)}
                 />
@@ -221,13 +229,15 @@ export function EditorTabs({
         <ToolButton
           theme={theme}
           icon={compact ? "back" : "sidebar"}
-          label={compact ? "返回变更列表" : sidebarVisible ? "隐藏文件侧栏" : "显示文件侧栏"}
+          label={
+            compact ? t("返回变更列表") : sidebarVisible ? t("隐藏文件侧栏") : t("显示文件侧栏")
+          }
           active={!compact && sidebarVisible}
           onPress={onToggleSidebar}
         />
         <ToolButton
           theme={theme}
-          label={settingsError ? "Git 设置 · 保存失败" : "Git 设置"}
+          label={settingsError ? t("Git 设置 · 保存失败") : t("Git 设置")}
           icon="settings"
           onPress={onSettings}
         />

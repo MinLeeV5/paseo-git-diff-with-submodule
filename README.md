@@ -100,6 +100,8 @@ HTML previews do not run scripts. Document previews do not load external or rela
 
 **Settings** groups appearance, code, comparison, behavior, and commit options. Adjust fonts, layout, refresh interval, and the default view; preferences are saved per Paseo host. [View settings](assets/settings.png).
 
+The interface language can be switched between **English and 简体中文** in appearance settings; commit message generation follows the selected language.
+
 The last **5 visited tabs** retain their contents and scroll positions by default; configure 1–10. Automatic refresh defaults to 2 seconds after a scan, pauses in the background, and can be disabled. Narrow panels use separate list and diff pages.
 
 | Shortcut                        | Action                                              |

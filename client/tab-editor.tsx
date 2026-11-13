@@ -8,6 +8,7 @@ import type { TabStats } from "../shared/tab-cache";
 import { ToolButton } from "./controls";
 import { type DiffLayout, DiffViewer } from "./diff-viewer";
 import { FilePreview } from "./file-preview";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import type { PreviewKind } from "./preview-model";
 import { codeFont, panelTokens } from "./theme";
@@ -59,6 +60,7 @@ export function TabEditor({
   to: string;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const patch = useFileDiff(
     preview
       ? null
@@ -113,8 +115,8 @@ export function TabEditor({
         </Text>
         <ToolButton
           theme={theme}
-          label="重试读取差异"
-          text="重试"
+          label={t("重试读取差异")}
+          text={t("重试")}
           icon="refresh"
           onPress={patch.retry}
         />
@@ -159,7 +161,7 @@ export function TabEditor({
             }}
           >
             <ActivityIndicator size="small" color={c.accent} />
-            <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>正在更新差异…</Text>
+            <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>{t("正在更新差异…")}</Text>
           </View>
         ) : null}
         {patch.error ? (
@@ -182,8 +184,8 @@ export function TabEditor({
             </Text>
             <ToolButton
               theme={theme}
-              label="重试更新差异"
-              text="重试"
+              label={t("重试更新差异")}
+              text={t("重试")}
               icon="refresh"
               onPress={patch.retry}
             />
@@ -194,7 +196,7 @@ export function TabEditor({
   return (
     <View style={{ flex: 1, padding: 24, gap: 12, alignItems: "center", justifyContent: "center" }}>
       <ActivityIndicator size="small" color={c.accent} />
-      <Text style={{ color: c.foregroundMuted, fontSize: 12 }}>正在读取文件差异…</Text>
+      <Text style={{ color: c.foregroundMuted, fontSize: 12 }}>{t("正在读取文件差异…")}</Text>
     </View>
   );
 }
