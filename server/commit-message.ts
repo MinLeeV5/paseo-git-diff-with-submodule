@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { z } from "zod";
 import type { RepositorySnapshot } from "../shared/contracts";
+import { type Translate, tZh } from "../shared/i18n";
 import { DIFF_OPTIONS, errorMessage, GitError, git } from "./git";
 import { MAX_FILE_BYTES, resolveFile } from "./repositories";
 import { commitChanges } from "./repository-actions";
@@ -112,7 +113,9 @@ export function commitMessageProviders(entries: ProviderEntry[], configured: Can
   );
 }
 
-const defaultInstructions =
+// The zh-CN sentence doubles as the catalog key; each language renders its own
+// default style instructions from the message catalog.
+const defaultInstructionsKey =
   "用简洁的中文概括变更目的，遵循 Conventional Commits，使用祈使句，不加句号，尽量不超过 72 个字符。";
 const projectSchema = z.object({
   metadataGeneration: z
@@ -121,17 +124,18 @@ const projectSchema = z.object({
     })
     .optional(),
 });
-async function instructionsFor(directory: string, custom: string) {
+async function instructionsFor(directory: string, custom: string, t: Translate) {
   if (custom.trim()) return custom.trim();
+  const defaultInstructions = t(defaultInstructionsKey);
   try {
     const path = join(directory, "paseo.json");
-    if ((await lstat(path)).size > MAX_FILE_BYTES) throw new Error("paseo.json 超过 1 MiB。");
+    if ((await lstat(path)).size > MAX_FILE_BYTES) throw new Error(t("paseo.json 超过 1 MiB。"));
     const config = projectSchema.parse(JSON.parse(await readFile(path, "utf8")));
     return config.metadataGeneration?.commitMessage?.instructions?.trim() || defaultInstructions;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return defaultInstructions;
     throw new Error(
-      "无法读取此仓库 paseo.json 中的提交信息指令，请检查配置或在插件设置中填写提示词。",
+      t("无法读取此仓库 paseo.json 中的提交信息指令，请检查配置或在插件设置中填写提示词。"),
     );
   }
 }
@@ -142,9 +146,10 @@ export async function commitMessagePrompt(
   repository: RepositorySnapshot,
   scope: "staged" | "all",
   custom: string,
+  t: Translate = tZh,
 ) {
-  const names = await commitChanges(repository, scope);
-  const instructions = await instructionsFor(repository.directory, custom);
+  const names = await commitChanges(repository, scope, t);
+  const instructions = await instructionsFor(repository.directory, custom, t);
   let patch = "";
   let omitted = 0;
   for (const [index, file] of names.entries()) {
@@ -217,13 +222,13 @@ const responseSchema = z.object({
     // biome-ignore lint/suspicious/noControlCharactersInRegex: reject control characters in single-line commit subjects.
     .regex(/^[^\r\n\u0000-\u001f\u007f\u2028\u2029]+$/u),
 });
-function readMessage(text: string | null) {
+function readMessage(text: string | null, t: Translate) {
   // Some providers wrap structured responses in a JSON fence.
   const json = (text ?? "").trim().replace(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i, "$1");
   try {
     return responseSchema.parse(JSON.parse(json)).message;
   } catch {
-    throw new Error("AI 返回的提交信息格式无效，需要包含单行 message 的 JSON。");
+    throw new Error(t("AI 返回的提交信息格式无效，需要包含单行 message 的 JSON。"));
   }
 }
 
@@ -249,11 +254,16 @@ function generationOptions(selection: PaseoAgentConfig): PaseoAgentConfig {
   };
 }
 class ArchiveError extends Error {}
-function assertActive(signal?: AbortSignal) {
-  if (signal?.aborted) throw new Error("生成会话已停止。");
+function assertActive(signal: AbortSignal | undefined, t: Translate) {
+  if (signal?.aborted) throw new Error(t("生成会话已停止。"));
 }
 
-async function generationWorkspace(paseo: CommitMessagePaseo, cwd: string, workspaceId?: string) {
+async function generationWorkspace(
+  paseo: CommitMessagePaseo,
+  cwd: string,
+  workspaceId: string | undefined,
+  t: Translate,
+) {
   async function matches(workspace: PaseoWorkspace | null) {
     if (!workspace?.workspaceDirectory || workspace.archivingAt) return false;
     return (await realpath(workspace.workspaceDirectory).catch(() => null)) === cwd;
@@ -261,7 +271,7 @@ async function generationWorkspace(paseo: CommitMessagePaseo, cwd: string, works
   if (workspaceId) {
     const workspace = paseo.workspaces.ref(workspaceId);
     if (!(await matches(await workspace.refresh())))
-      throw new Error("当前工作区不可用或目录不匹配，请重新打开 Git 面板后再试。");
+      throw new Error(t("当前工作区不可用或目录不匹配，请重新打开 Git 面板后再试。"));
     return workspace;
   }
   // Older panels do not send an id. Resolve a unique existing workspace without
@@ -276,7 +286,7 @@ async function generationWorkspace(paseo: CommitMessagePaseo, cwd: string, works
     cursor = page.pageInfo.nextCursor ?? undefined;
   } while (cursor);
   if (found.length !== 1)
-    throw new Error("无法确定当前工作区，请重新打开 Git 面板后生成提交信息。");
+    throw new Error(t("无法确定当前工作区，请重新打开 Git 面板后生成提交信息。"));
   return paseo.workspaces.ref(found[0]);
 }
 
@@ -288,28 +298,29 @@ export async function generatePaseoCommitMessage(
   custom: string,
   workspaceId?: string,
   signal?: AbortSignal,
+  t: Translate = tZh,
 ) {
-  const prompt = await commitMessagePrompt(repository, scope, custom);
-  assertActive(signal);
-  const workspace = await generationWorkspace(paseo, cwd, workspaceId);
-  assertActive(signal);
+  const prompt = await commitMessagePrompt(repository, scope, custom, t);
+  assertActive(signal, t);
+  const workspace = await generationWorkspace(paseo, cwd, workspaceId, t);
+  assertActive(signal, t);
   const [{ config }, snapshot] = await Promise.all([
     paseo.config.get(),
     paseo.providers.waitForReady({ cwd, timeoutMs: 20000 }),
   ]);
   const candidates = commitMessageProviders(snapshot.entries, config.metadataGeneration.providers);
-  assertActive(signal);
+  assertActive(signal, t);
   if (!candidates.length)
-    throw new Error("Paseo 没有可用的 AI 模型，请先在 Paseo 中启用模型提供商。");
+    throw new Error(t("Paseo 没有可用的 AI 模型，请先在 Paseo 中启用模型提供商。"));
   const deadline = Date.now() + 120000;
   const failures: string[] = [];
   for (const selection of candidates.slice(0, 3)) {
     if (Date.now() >= deadline) break;
-    assertActive(signal);
+    assertActive(signal, t);
     try {
       const agent = await workspace.agents.create({
         config: generationOptions(selection),
-        title: `提交信息 · ${repository.id}`,
+        title: t("提交信息 · {repository}", { repository: repository.id }),
         outputSchema: z.toJSONSchema(responseSchema),
         autoArchive: true,
       });
@@ -320,18 +331,18 @@ export async function generatePaseoCommitMessage(
       };
       signal?.addEventListener("abort", abort, { once: true });
       try {
-        assertActive(signal);
+        assertActive(signal, t);
         const result = await agent.run(prompt, {
           timeoutMs: Math.min(60000, Math.max(1, deadline - Date.now())),
         });
-        assertActive(signal);
+        assertActive(signal, t);
         if (result.status !== "idle")
           throw new Error(
             result.status === "permission"
-              ? "生成会话请求了工具权限，已停止。"
+              ? t("生成会话请求了工具权限，已停止。")
               : result.status === "timeout"
-                ? "生成提交信息超时。"
-                : result.error || "生成会话失败。",
+                ? t("生成提交信息超时。")
+                : result.error || t("生成会话失败。"),
           );
         let text = result.lastMessage;
         if (!text) {
@@ -341,19 +352,21 @@ export async function generatePaseoCommitMessage(
           )?.item;
           if (item?.type === "assistant_message") text = item.text;
         }
-        return { message: readMessage(text), scope, source: "paseo" as const };
+        return { message: readMessage(text, t), scope, source: "paseo" as const };
       } finally {
         // Archive also stops a timed-out or permission-blocked run.
         signal?.removeEventListener("abort", abort);
         await archive().catch(() => {
-          throw new ArchiveError("生成会话未能归档，请在 Paseo 会话列表中检查后重试。");
+          throw new ArchiveError(t("生成会话未能归档，请在 Paseo 会话列表中检查后重试。"));
         });
       }
     } catch (error) {
-      assertActive(signal);
+      assertActive(signal, t);
       if (error instanceof ArchiveError) throw error;
       failures.push(`${selection.provider}: ${errorMessage(error)}`);
     }
   }
-  throw new Error(`AI 提交信息生成失败，已保留当前草稿。${failures.join("；")}`);
+  throw new Error(
+    t("AI 提交信息生成失败，已保留当前草稿。{failures}", { failures: failures.join(t("；")) }),
+  );
 }

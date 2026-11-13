@@ -5,6 +5,7 @@ import { ActivityIndicator, Image, Platform, ScrollView, Text, View } from "reac
 import { type FileContent, fileContentRpc, mermaidRuntimeRpc } from "../shared/contracts";
 import { parsePreviewLink } from "../shared/preview-links";
 import { ToolButton } from "./controls";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import { hasMermaid } from "./mermaid-preview";
 import { NativeMarkdown } from "./native-markdown";
@@ -56,6 +57,7 @@ export function FilePreview({
   const call = useRpc(fileContentRpc);
   const loadRenderer = useRpc(mermaidRuntimeRpc);
   const c = panelTokens(theme);
+  const t = useT();
   const [attempt, setAttempt] = useState(0);
   const [runtime, setRuntime] = useState("");
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -170,6 +172,7 @@ export function FilePreview({
               fontFamily,
               fontWeight,
               filePath: path,
+              t,
               ...(kind === "markdown" ? { navigation: identity } : {}),
               ...(diagrams && runtime
                 ? {
@@ -197,6 +200,7 @@ export function FilePreview({
       runtime,
       identity,
       path,
+      t,
     ],
   );
   function revealAnchor() {
@@ -227,8 +231,8 @@ export function FilePreview({
         {current.error ? (
           <ToolButton
             theme={theme}
-            label="重试读取预览"
-            text="重试"
+            label={t("重试读取预览")}
+            text={t("重试")}
             icon="refresh"
             onPress={() => setAttempt((value) => value + 1)}
           />
@@ -250,13 +254,13 @@ export function FilePreview({
             style={{ padding: 8, gap: 5, backgroundColor: c.surface1 }}
           >
             <Text style={{ color: c.statusDanger, fontSize: 12 }}>
-              Mermaid 加载失败：{runtimeError}
+              {t("Mermaid 加载失败：{error}", { error: runtimeError })}
             </Text>
             <ToolButton
               theme={theme}
               icon="refresh"
-              label="重试加载 Mermaid"
-              text="重试"
+              label={t("重试加载 Mermaid")}
+              text={t("重试")}
               onPress={() => setRuntimeError(null)}
             />
           </View>
@@ -264,11 +268,14 @@ export function FilePreview({
         {createElement("iframe", {
           key: `${key}:${Boolean(diagrams && runtime)}`,
           ref: frame,
-          title: `${path} 文件预览`,
+          title: t("{path} 文件预览", { path }),
           "data-testid": "file-preview",
           srcDoc:
             diagrams && runtimeError
-              ? document.replaceAll("正在加载 Mermaid 图表…", "图表引擎加载失败，可展开查看源码。")
+              ? document.replaceAll(
+                  t("正在加载 Mermaid 图表…"),
+                  t("图表引擎加载失败，可展开查看源码。"),
+                )
               : document,
           sandbox: kind === "markdown" ? "allow-scripts" : "",
           onLoad: revealAnchor,
@@ -287,7 +294,7 @@ export function FilePreview({
   if (current.data.state === "image")
     return (
       <Image
-        accessibilityLabel={`${path} 文件预览`}
+        accessibilityLabel={t("{path} 文件预览", { path })}
         source={{ uri: current.data.content }}
         resizeMode="contain"
         style={{ flex: 1 }}
@@ -309,7 +316,7 @@ export function FilePreview({
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
       <Text selectable style={{ color: c.foreground, fontSize, lineHeight: fontSize * 1.7 }}>
-        {kind === "html" ? "HTML 预览请在桌面或 Web 面板中打开。\n\n" : ""}
+        {kind === "html" ? `${t("HTML 预览请在桌面或 Web 面板中打开。")}\n\n` : ""}
         {current.data.content}
       </Text>
     </ScrollView>

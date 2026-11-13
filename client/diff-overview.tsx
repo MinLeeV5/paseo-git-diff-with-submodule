@@ -7,6 +7,7 @@ import {
   type DiffRowLayout,
   diffOverviewMarkers,
 } from "./diff-overview-model";
+import { useT } from "./i18n";
 import { panelTokens } from "./theme";
 
 export const DIFF_OVERVIEW_WIDTH = 18;
@@ -26,6 +27,7 @@ export function DiffOverview({
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const c = panelTokens(theme);
+  const t = useT();
   const markers = useMemo(
     () => diffOverviewMarkers(ranges, sizes, height),
     [ranges, sizes, height],
@@ -33,7 +35,7 @@ export function DiffOverview({
   return (
     <View
       testID="diff-overview"
-      accessibilityLabel="差异位置：红色为删除，绿色为新增，点击跳转"
+      accessibilityLabel={t("差异位置：红色为删除，绿色为新增，点击跳转")}
       onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
       style={{
         width: DIFF_OVERVIEW_WIDTH,
@@ -50,7 +52,10 @@ export function DiffOverview({
           marker.firstLine === marker.lastLine
             ? `${marker.firstLine}`
             : `${marker.firstLine}–${marker.lastLine}`;
-        const label = `${added ? "新增 · 修改" : "删除 · 原始"}第 ${line} 行，点击跳转`;
+        const label = t("{kind}第 {line} 行，点击跳转", {
+          kind: added ? t("新增 · 修改") : t("删除 · 原始"),
+          line,
+        });
         const key = `${marker.kind}:${marker.start}`;
         return (
           <Pressable

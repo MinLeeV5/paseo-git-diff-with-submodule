@@ -10,6 +10,7 @@ import {
   fileDiffViewRpc,
 } from "../shared/contracts";
 import { DiffCache } from "../shared/diff-cache";
+import { useT } from "./i18n";
 
 export function useChanges(
   directory: string,
@@ -18,6 +19,7 @@ export function useChanges(
   refreshInterval = 2000,
 ) {
   const call = useRpc(changesViewRpc);
+  const t = useT();
   const refresh = useRef<(() => void) | null>(null);
   const policyChanged = useRef<(() => void) | null>(null);
   const automaticRef = useRef(automatic);
@@ -74,7 +76,7 @@ export function useChanges(
           background: !manual,
           known,
         });
-        const snapshot = mergeChangesView(currentSnapshot, view);
+        const snapshot = mergeChangesView(currentSnapshot, view, t);
         known = view.repositoryVersions;
         currentSnapshot = snapshot;
         incomplete = Boolean(snapshot.pending);
@@ -145,7 +147,7 @@ export function useChanges(
       cancelTimer();
       subscription.remove();
     };
-  }, [call, directory, comparison, key]);
+  }, [call, directory, comparison, key, t]);
   useEffect(() => {
     if (automatic !== undefined && refreshInterval) policyChanged.current?.();
   }, [automatic, refreshInterval]);

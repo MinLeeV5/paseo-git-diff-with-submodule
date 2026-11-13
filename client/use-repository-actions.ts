@@ -5,6 +5,7 @@ import {
   type RepositoryAction,
   repositoryActionRpc,
 } from "../shared/repository-contracts";
+import { useT } from "./i18n";
 import { briefError, repositoryLabel, useMessage } from "./use-message";
 
 const actionLabels = {
@@ -25,6 +26,7 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
   const action = useRpc(repositoryActionRpc);
   const generate = useRpc(generateCommitMessageRpc);
   const message = useMessage();
+  const t = useT();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const draftRef = useRef(drafts);
   const [states, setStates] = useState<Record<string, RepositoryOperationState>>({});
@@ -52,7 +54,11 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
           ...old,
           [id]: { busy: null, message: "", error: false },
         }));
-        message(`${repositoryLabel(id)}：${result.message}`, "success", `repository:${id}`);
+        message(
+          t("{repo}：{message}", { repo: repositoryLabel(id, t), message: result.message }),
+          "success",
+          `repository:${id}`,
+        );
       } catch (error) {
         setStates((old) => ({
           ...old,
@@ -63,7 +69,11 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
           },
         }));
         message(
-          `${repositoryLabel(id)}：${actionLabels[input.action]}失败。${briefError(error)}`,
+          t("{repo}：{action}失败。{error}", {
+            repo: repositoryLabel(id, t),
+            action: t(actionLabels[input.action]),
+            error: briefError(error),
+          }),
           "error",
           `repository:${id}`,
         );
@@ -72,7 +82,7 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
         refreshRef.current();
       }
     },
-    [action, setDraft, message],
+    [action, setDraft, message, t],
   );
   const generateMessage = useCallback(
     async (id: string, scope: "staged" | "all") => {
@@ -112,12 +122,15 @@ export function useRepositoryActions(directory: string, refresh: () => void, wor
             error: true,
           },
         }));
-        message(`${repositoryLabel(id)}：提交信息生成失败，已保留草稿。`, "error");
+        message(
+          t("{repo}：提交信息生成失败，已保留草稿。", { repo: repositoryLabel(id, t) }),
+          "error",
+        );
       } finally {
         pending.current.delete(id);
       }
     },
-    [directory, workspaceId, generate, setDraft, message],
+    [directory, workspaceId, generate, setDraft, message, t],
   );
   return { drafts, states, setDraft, clearMessage, run, generateMessage };
 }

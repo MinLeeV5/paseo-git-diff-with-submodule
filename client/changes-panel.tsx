@@ -51,6 +51,7 @@ import { EditorTabs } from "./editor-tabs";
 import { FileMenu, type FileMenuItem, type FileMenuTarget } from "./file-menu";
 import { filePaths } from "./file-paths";
 import { HistoryPanel } from "./history-panel";
+import { I18nProvider, useT } from "./i18n";
 import { fileAppearance, Icon } from "./icons";
 import { previewKind } from "./preview-model";
 import { RepositoryControls } from "./repository-controls";
@@ -82,10 +83,11 @@ function statusColor(file: FileChange, theme: PluginTheme) {
 
 export function ChangesPanel(props: PluginWorkspacePanelProps) {
   const workspace = useWorkspace(props.workspaceId, ({ directory, name }) => ({ directory, name }));
+  const t = useT();
   if (!workspace)
     return (
       <View style={{ padding: 20 }}>
-        <Text style={{ color: props.theme.colors.foregroundMuted }}>工作区不可用。</Text>
+        <Text style={{ color: props.theme.colors.foregroundMuted }}>{t("工作区不可用。")}</Text>
       </View>
     );
   return (
@@ -137,6 +139,7 @@ const ChangeItem = memo(function ChangeItem({
 }) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const t = useT();
   const { repository } = item;
   const rowFeedback = [
     hovered && styles.hoveredRow,
@@ -155,10 +158,10 @@ const ChangeItem = memo(function ChangeItem({
         />
         <Text style={[styles.small, repository.state !== "ready" && styles.warning]}>
           {repository.state === "uninitialized"
-            ? "子模块未初始化"
+            ? t("子模块未初始化")
             : repository.state === "error"
               ? repository.error
-              : "此视图没有更改"}
+              : t("此视图没有更改")}
         </Text>
       </View>
     );
@@ -177,8 +180,10 @@ const ChangeItem = memo(function ChangeItem({
           ] as const
         ).filter(({ count }) => count !== null && count > 0)
       : [];
-    const syncLabel = syncCounts.map(({ count, label }) => `${count} 个${label}提交`).join("，");
-    const title = `${repository.directory}\nHEAD ${repository.head ?? "尚无提交"}${drift ? `\n父仓记录 ${repository.recordedHead} → 当前 ${repository.head}` : ""}${syncLabel ? `\n${syncLabel}` : ""}`;
+    const syncLabel = syncCounts
+      .map(({ count, label }) => t("{count} 个{label}提交", { count, label: t(label) }))
+      .join(t("，"));
+    const title = `${repository.directory}\nHEAD ${repository.head ?? t("尚无提交")}${drift ? t("\n父仓记录 {recorded} → 当前 {head}", { recorded: repository.recordedHead, head: repository.head }) : ""}${syncLabel ? `\n${syncLabel}` : ""}`;
     return (
       <Pressable
         ref={(node) => {
@@ -188,7 +193,12 @@ const ChangeItem = memo(function ChangeItem({
             (node as unknown as { style: { outlineStyle: string } }).style.outlineStyle = "none";
         }}
         accessibilityRole="button"
-        accessibilityLabel={`${collapsed ? "展开" : "收起"}仓库 ${repository.relativePath || label}${syncLabel ? `，${syncLabel}` : ""}`}
+        accessibilityLabel={
+          t("{action}仓库 {name}", {
+            action: collapsed ? t("展开") : t("收起"),
+            name: repository.relativePath || label,
+          }) + (syncLabel ? t("，{sync}", { sync: syncLabel }) : "")
+        }
         accessibilityState={{ expanded: !collapsed }}
         {...(Platform.OS === "web"
           ? {
@@ -218,7 +228,7 @@ const ChangeItem = memo(function ChangeItem({
               {label}
             </Text>
             {drift ? (
-              <View accessibilityLabel="子模块提交指针已变化" style={styles.pointerBadge}>
+              <View accessibilityLabel={t("子模块提交指针已变化")} style={styles.pointerBadge}>
                 <Icon name="pointer" size={12} color={theme.colors.statusWarning} />
               </View>
             ) : null}
@@ -227,15 +237,17 @@ const ChangeItem = memo(function ChangeItem({
           <View style={styles.branchLine}>
             <Icon name="branch" size={11} color={theme.colors.foregroundMuted} />
             <Text numberOfLines={1} style={[styles.small, styles.fileName]}>
-              {repository.branch ?? (repository.head ? repository.head.slice(0, 8) : "尚无提交")}
+              {repository.branch ?? (repository.head ? repository.head.slice(0, 8) : t("尚无提交"))}
             </Text>
             <Text style={styles.repositoryKind}>
-              {repository.parentId !== null ? "子模块" : "主仓库"}
+              {repository.parentId !== null ? t("子模块") : t("主仓库")}
             </Text>
             {syncCounts.map(({ icon, count, label }) => (
               <View
                 key={icon}
-                ref={(node) => setWebTitle(node, `${count} 个${label}提交`)}
+                ref={(node) =>
+                  setWebTitle(node, t("{count} 个{label}提交", { count, label: t(label) }))
+                }
                 style={styles.syncCount}
               >
                 <Icon name={icon} size={12} color={theme.colors.foregroundMuted} />
@@ -251,7 +263,10 @@ const ChangeItem = memo(function ChangeItem({
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${collapsed ? "展开" : "收起"}目录 ${displayPath(item.path)}`}
+        accessibilityLabel={t("{action}目录 {path}", {
+          action: collapsed ? t("展开") : t("收起"),
+          path: displayPath(item.path),
+        })}
         accessibilityState={{ expanded: !collapsed }}
         {...(Platform.OS === "web" ? { "aria-expanded": !collapsed } : {})}
         onPress={() => onToggle(item.key)}
@@ -283,12 +298,12 @@ const ChangeItem = memo(function ChangeItem({
   const appearance = fileAppearance(file.path, theme.colors.foregroundMuted);
   const parent = file.path.includes("/") ? file.path.slice(0, file.path.lastIndexOf("/")) : "";
   const status = statusLabels[file.status];
-  const label = `${status.label} ${repository.id}/${file.path}${file.oldPath ? `，原路径 ${file.oldPath}` : ""}，${file.binary ? "二进制文件" : `新增 ${file.additions ?? "未知"} 行，删除 ${file.deletions ?? "未知"} 行`}${file.staged && file.unstaged ? "，同时有已暂存和未暂存更改" : ""}`;
+  const label = `${t(status.label)} ${repository.id}/${file.path}${file.oldPath ? t("，原路径 {path}", { path: file.oldPath }) : ""}${t("，")}${file.binary ? t("二进制文件") : t("新增 {additions} 行，删除 {deletions} 行", { additions: t(String(file.additions ?? "未知")), deletions: t(String(file.deletions ?? "未知")) })}${file.staged && file.unstaged ? t("，同时有已暂存和未暂存更改") : ""}`;
   return (
     <View style={[styles.file, styles.fileWithActions, compact && styles.touchRow, ...rowFeedback]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`查看 diff ${label}`}
+        accessibilityLabel={t("查看 diff {label}", { label })}
         ref={(node) => {
           onRegister(item.key, node);
           setWebTitle(node, label);
@@ -355,14 +370,14 @@ const ChangeItem = memo(function ChangeItem({
           </Text>
         ) : null}
         {file.staged && file.unstaged ? (
-          <View accessibilityLabel="部分暂存" style={styles.partialMarker} />
+          <View accessibilityLabel={t("部分暂存")} style={styles.partialMarker} />
         ) : null}
         <Text style={[styles.fileStatus, { color: statusColor(file, theme) }]}>{status.badge}</Text>
       </Pressable>
       <View style={styles.fileActions}>
         {file.unstaged ? (
           <ToolButton
-            label={`暂存更改 ${repository.id}/${displayPath(file.path)}`}
+            label={t("暂存更改 {path}", { path: `${repository.id}/${displayPath(file.path)}` })}
             icon="stage"
             theme={theme}
             disabled={busy}
@@ -371,7 +386,7 @@ const ChangeItem = memo(function ChangeItem({
         ) : null}
         {file.staged ? (
           <ToolButton
-            label={`取消暂存 ${repository.id}/${displayPath(file.path)}`}
+            label={t("取消暂存 {path}", { path: `${repository.id}/${displayPath(file.path)}` })}
             icon="unstage"
             theme={theme}
             disabled={busy}
@@ -391,36 +406,53 @@ type WorkspaceChangesProps = {
   compact: boolean;
 };
 
+function SettingsLoading({
+  theme,
+  preferences,
+}: {
+  theme: PluginTheme;
+  preferences: ReturnType<typeof usePanelSettings>;
+}) {
+  const t = useT();
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: theme.colors.surface0,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+      }}
+    >
+      {preferences.error ? (
+        <>
+          <Text style={{ color: theme.colors.statusDanger }}>{preferences.error}</Text>
+          <ToolButton
+            theme={theme}
+            label={t("重试加载设置")}
+            icon="refresh"
+            text={t("重试")}
+            onPress={preferences.retry}
+          />
+        </>
+      ) : (
+        <ActivityIndicator color={theme.colors.accent} />
+      )}
+    </View>
+  );
+}
+
 export function WorkspaceChanges(props: WorkspaceChangesProps) {
   const preferences = usePanelSettings();
-  if (!preferences.loaded)
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: props.theme.colors.surface0,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 12,
-        }}
-      >
-        {preferences.error ? (
-          <>
-            <Text style={{ color: props.theme.colors.statusDanger }}>{preferences.error}</Text>
-            <ToolButton
-              theme={props.theme}
-              label="重试加载设置"
-              icon="refresh"
-              text="重试"
-              onPress={preferences.retry}
-            />
-          </>
-        ) : (
-          <ActivityIndicator color={props.theme.colors.accent} />
-        )}
-      </View>
-    );
-  return <WorkspaceViews {...props} preferences={preferences} />;
+  return (
+    <I18nProvider language={preferences.values.language}>
+      {!preferences.loaded ? (
+        <SettingsLoading theme={props.theme} preferences={preferences} />
+      ) : (
+        <WorkspaceViews {...props} preferences={preferences} />
+      )}
+    </I18nProvider>
+  );
 }
 
 function WorkspaceViews({
@@ -526,6 +558,7 @@ function WorkspaceEditor({
 }) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const colors = useMemo(() => panelTokens(theme), [theme]);
+  const t = useT();
   const [width, setWidth] = useState<number | null>(null);
   const compact = hostCompact || (width !== null && width < 720);
   const [page, setPage] = useState<"changes" | "diff">("changes");
@@ -561,6 +594,9 @@ function WorkspaceEditor({
     label: "在文件管理器中显示",
     platform: "",
   });
+  // The placeholder above only shows for one frame before the server response
+  // arrives; translate it for display without changing the state shape.
+  const capabilitiesLabel = t(capabilities.label);
   useEffect(() => {
     let stopped = false;
     void getCapabilities({}).then(
@@ -683,14 +719,16 @@ function WorkspaceEditor({
       (error: unknown) => {
         if (!stopped)
           setFileStatusError(
-            `无法检查文件最新状态：${error instanceof Error ? error.message : String(error)}`,
+            t("无法检查文件最新状态：{error}", {
+              error: error instanceof Error ? error.message : String(error),
+            }),
           );
       },
     );
     return () => {
       stopped = true;
     };
-  }, [directory, selectedKey, linkedPath, linkedId, resolveLink]);
+  }, [directory, selectedKey, linkedPath, linkedId, resolveLink, t]);
   const linkedRepository = linked
     ? repositories?.find((repo) => repo.id === linked.repositoryId)
     : undefined;
@@ -1002,10 +1040,18 @@ function WorkspaceEditor({
           (linkedFiles[entryKey(target.repositoryId, target.path)] ? "workspace" : "changes"),
       });
       if (result.directory && !scope)
-        message(`${repositoryLabel(target.repositoryId)}：文件已删除，已定位到所在目录。`, "info");
+        message(
+          t("{repo}：文件已删除，已定位到所在目录。", {
+            repo: repositoryLabel(target.repositoryId, t),
+          }),
+          "info",
+        );
     } catch (error) {
       message(
-        `${repositoryLabel(target.repositoryId)}：定位文件失败。${briefError(error)}`,
+        t("{repo}：定位文件失败。{error}", {
+          repo: repositoryLabel(target.repositoryId, t),
+          error: briefError(error),
+        }),
         "error",
       );
     }
@@ -1013,18 +1059,27 @@ function WorkspaceEditor({
   async function copyPath(target: FileMenuTarget, relative: boolean) {
     const repository = repositories?.find((repo) => repo.id === target.repositoryId);
     if (!repository) {
-      message("文件所属仓库已变化，请刷新后重试。", "warning");
+      message(t("文件所属仓库已变化，请刷新后重试。"), "warning");
       return;
     }
     const paths = filePaths(repository, target.path);
     try {
       await copyText(relative ? paths.relative : paths.absolute);
       message(
-        `${repositoryLabel(repository.id)}：已复制${relative ? "相对路径" : "路径"}。`,
+        t("{repo}：已复制{kind}。", {
+          repo: repositoryLabel(repository.id, t),
+          kind: relative ? t("相对路径") : t("路径"),
+        }),
         "success",
       );
     } catch (error) {
-      message(`${repositoryLabel(repository.id)}：复制失败。${briefError(error)}`, "error");
+      message(
+        t("{repo}：复制失败。{error}", {
+          repo: repositoryLabel(repository.id, t),
+          error: briefError(error),
+        }),
+        "error",
+      );
     }
   }
   async function navigatePreview(href: string) {
@@ -1037,7 +1092,7 @@ function WorkspaceEditor({
           ? Linking.openURL(link.url)
           : openExternalUrl(link.url));
       } catch (error) {
-        message(`打开链接失败：${briefError(error)}`, "error");
+        message(t("打开链接失败：{error}", { error: briefError(error) }), "error");
       }
       return;
     }
@@ -1058,7 +1113,7 @@ function WorkspaceEditor({
         return;
       }
       const repository = repositories?.find((repo) => repo.id === target.repositoryId);
-      if (!repository) throw new Error("链接所属仓库已变化，请刷新后重试。");
+      if (!repository) throw new Error(t("链接所属仓库已变化，请刷新后重试。"));
       const key = entryKey(target.repositoryId, target.path);
       initialized.current = true;
       setLinkedFiles((previous) => ({ ...previous, [key]: target }));
@@ -1068,14 +1123,14 @@ function WorkspaceEditor({
       setPage("diff");
     } catch (error) {
       if (request === navigationRequest.current)
-        message(`打开文件链接失败：${briefError(error)}`, "error");
+        message(t("打开文件链接失败：{error}", { error: briefError(error) }), "error");
     }
   }
   function menuItems(target: FileMenuTarget): FileMenuItem[] {
     const items: FileMenuItem[] = [
       {
         key: "copy",
-        label: "复制路径",
+        label: t("复制路径"),
         icon: "copy",
         onPress: () => {
           void copyPath(target, false);
@@ -1083,7 +1138,7 @@ function WorkspaceEditor({
       },
       {
         key: "copy-relative",
-        label: "复制相对路径",
+        label: t("复制相对路径"),
         icon: "copy",
         onPress: () => {
           void copyPath(target, true);
@@ -1091,7 +1146,7 @@ function WorkspaceEditor({
       },
       {
         key: "reveal",
-        label: capabilities.label,
+        label: capabilitiesLabel,
         icon: "reveal",
         separator: true,
         disabled: !capabilities.reveal,
@@ -1105,7 +1160,7 @@ function WorkspaceEditor({
       if (entry.file.unstaged)
         items.push({
           key: "stage",
-          label: "暂存更改",
+          label: t("暂存更改"),
           icon: "stage",
           separator: true,
           disabled: Boolean(repositoryActions.states[target.repositoryId]?.busy),
@@ -1116,7 +1171,7 @@ function WorkspaceEditor({
       if (entry.file.staged)
         items.push({
           key: "unstage",
-          label: "取消暂存",
+          label: t("取消暂存"),
           icon: "unstage",
           separator: !entry.file.unstaged,
           disabled: Boolean(repositoryActions.states[target.repositoryId]?.busy),
@@ -1128,7 +1183,7 @@ function WorkspaceEditor({
     if (previewKind(target.path))
       items.push({
         key: "preview",
-        label: "打开文件预览",
+        label: t("打开文件预览"),
         icon: "preview",
         onPress: () => {
           const key = entryKey(target.repositoryId, target.path);
@@ -1146,33 +1201,38 @@ function WorkspaceEditor({
       items.push(
         {
           key: "close",
-          label: "关闭",
+          label: t("关闭"),
           icon: "close",
           separator: true,
           onPress: () => closeFile(key),
         },
         {
           key: "others",
-          label: "关闭其他",
+          label: t("关闭其他"),
           icon: "closeAll",
           disabled: tabs.tabs.length < 2,
           onPress: () => closeFile(key, "others"),
         },
         {
           key: "right",
-          label: "关闭右侧",
+          label: t("关闭右侧"),
           icon: "pointer",
           disabled: index < 0 || index === tabs.tabs.length - 1,
           onPress: () => closeFile(key, "right"),
         },
         {
           key: "left",
-          label: "关闭左侧",
+          label: t("关闭左侧"),
           icon: "back",
           disabled: index <= 0,
           onPress: () => closeFile(key, "left"),
         },
-        { key: "all", label: "关闭全部", icon: "closeAll", onPress: () => closeFile(key, "all") },
+        {
+          key: "all",
+          label: t("关闭全部"),
+          icon: "closeAll",
+          onPress: () => closeFile(key, "all"),
+        },
       );
     }
     return items;
@@ -1212,7 +1272,7 @@ function WorkspaceEditor({
           <Text style={[styles.small, styles.fileName]}>{fileStatusError}</Text>
           <ToolButton
             theme={theme}
-            label="关闭文件状态提示"
+            label={t("关闭文件状态提示")}
             icon="close"
             onPress={() => setFileStatusError(null)}
           />
@@ -1242,17 +1302,17 @@ function WorkspaceEditor({
           >
             <View style={styles.titlebar}>
               {viewSwitcher}
-              <Text style={styles.heading}>更改</Text>
+              <Text style={styles.heading}>{t("更改")}</Text>
               <Text style={styles.count}>{model.entries.length}</Text>
               <ToolButton
                 theme={theme}
-                label={tree ? "切换为列表视图" : "切换为目录树"}
+                label={tree ? t("切换为列表视图") : t("切换为目录树")}
                 icon={tree ? "list" : "tree"}
                 onPress={() => updateSettings({ tree: !tree })}
               />
               <ToolButton
                 theme={theme}
-                label="折叠或展开全部仓库"
+                label={t("折叠或展开全部仓库")}
                 icon="collapse"
                 onPress={() => {
                   const keys = (repositories ?? []).map((repo) => `repo:${repo.id}`);
@@ -1262,7 +1322,7 @@ function WorkspaceEditor({
               />
               <ToolButton
                 theme={theme}
-                label="刷新 Git 状态"
+                label={t("刷新 Git 状态")}
                 icon="refresh"
                 busy={changes.refreshing}
                 onPress={changes.refresh}
@@ -1270,7 +1330,7 @@ function WorkspaceEditor({
               {compact ? (
                 <ToolButton
                   theme={theme}
-                  label="Git 设置"
+                  label={t("Git 设置")}
                   icon="settings"
                   onPress={() => setShowSettings(true)}
                 />
@@ -1281,12 +1341,14 @@ function WorkspaceEditor({
                 <Pressable
                   key={item.value}
                   accessibilityRole="tab"
-                  accessibilityLabel={item.label}
-                  ref={(node) => setWebTitle(node, `${item.label} · ${item.from} → ${item.to}`)}
+                  accessibilityLabel={t(item.label)}
+                  ref={(node) =>
+                    setWebTitle(node, `${t(item.label)} · ${t(item.from)} → ${t(item.to)}`)
+                  }
                   accessibilityState={{ selected: comparison === item.value }}
                   {...(Platform.OS === "web"
                     ? {
-                        title: `${item.label} · ${item.from} → ${item.to}`,
+                        title: `${t(item.label)} · ${t(item.from)} → ${t(item.to)}`,
                         "aria-selected": comparison === item.value,
                       }
                     : {})}
@@ -1298,7 +1360,7 @@ function WorkspaceEditor({
                   ]}
                 >
                   <Text style={[styles.tabText, comparison === item.value && styles.activeTabText]}>
-                    {item.label}
+                    {t(item.label)}
                   </Text>
                 </Pressable>
               ))}
@@ -1307,8 +1369,8 @@ function WorkspaceEditor({
               theme={theme}
               icon="search"
               inputRef={inputRef}
-              accessibilityLabel="筛选变更文件"
-              placeholder="筛选文件路径…"
+              accessibilityLabel={t("筛选变更文件")}
+              placeholder={t("筛选文件路径…")}
               value={filter}
               onChangeText={setFilter}
               containerStyle={styles.filterWrap}
@@ -1319,7 +1381,7 @@ function WorkspaceEditor({
               {filter ? (
                 <ToolButton
                   theme={theme}
-                  label="清除筛选"
+                  label={t("清除筛选")}
                   icon="close"
                   onPress={() => setFilter("")}
                 />
@@ -1329,12 +1391,12 @@ function WorkspaceEditor({
               <View accessibilityRole="alert" style={styles.error}>
                 <Icon name="warning" color={colors.statusDanger} />
                 <Text selectable style={[styles.small, styles.danger, styles.fileName]}>
-                  {changes.data ? "刷新失败，显示上次结果。" : "无法读取 Git 状态。"}
+                  {changes.data ? t("刷新失败，显示上次结果。") : t("无法读取 Git 状态。")}
                   {changes.error}
                 </Text>
                 <ToolButton
                   theme={theme}
-                  label="重试读取 Git 状态"
+                  label={t("重试读取 Git 状态")}
                   icon="refresh"
                   onPress={changes.refresh}
                 />
@@ -1343,7 +1405,7 @@ function WorkspaceEditor({
             {changes.loading ? (
               <View style={styles.loading}>
                 <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={styles.muted}>正在读取 Git 状态…</Text>
+                <Text style={styles.muted}>{t("正在读取 Git 状态…")}</Text>
               </View>
             ) : (
               <ScrollView
@@ -1376,12 +1438,14 @@ function WorkspaceEditor({
                   ListEmptyComponent={
                     <View style={styles.loading}>
                       <Icon name="search" color={colors.foregroundMuted} size={24} />
-                      <Text style={styles.muted}>{query ? "没有匹配的更改" : "没有可用仓库"}</Text>
+                      <Text style={styles.muted}>
+                        {query ? t("没有匹配的更改") : t("没有可用仓库")}
+                      </Text>
                       {query ? (
                         <ToolButton
                           theme={theme}
-                          label="清除筛选"
-                          text="清除筛选"
+                          label={t("清除筛选")}
+                          text={t("清除筛选")}
                           onPress={() => setFilter("")}
                         />
                       ) : null}
@@ -1391,11 +1455,13 @@ function WorkspaceEditor({
               </ScrollView>
             )}
             <View style={styles.railSummary}>
-              <Text style={[styles.small, styles.fileName]}>{model.entries.length} 个更改</Text>
+              <Text style={[styles.small, styles.fileName]}>
+                {t("{count} 个更改", { count: model.entries.length })}
+              </Text>
               <Text style={styles.added}>+{model.totals.additions}</Text>
               <Text style={styles.removed}>−{model.totals.deletions}</Text>
               {model.totals.incomplete ? (
-                <View accessibilityLabel="统计不含二进制及超限文件">
+                <View accessibilityLabel={t("统计不含二进制及超限文件")}>
                   <Icon name="info" size={12} color={colors.foregroundMuted} />
                 </View>
               ) : null}
@@ -1458,7 +1524,7 @@ function WorkspaceEditor({
                   style={[styles.inline, styles.fileName]}
                   {...(Platform.OS === "web"
                     ? {
-                        title: `${selected.repository.directory}/${selected.file.path}\n${linked ? "工作目录文件" : `${baseline.from} → ${baseline.to}`} · 只读`,
+                        title: `${selected.repository.directory}/${selected.file.path}\n${linked ? t("工作目录文件") : `${t(baseline.from)} → ${t(baseline.to)}`} · ${t("只读")}`,
                       }
                     : {})}
                 >
@@ -1472,14 +1538,22 @@ function WorkspaceEditor({
                     {displayPath(selected.file.path)}
                   </Text>
                 </View>
-                {linked ? <Text style={styles.small}>工作目录文件</Text> : null}
+                {linked ? <Text style={styles.small}>{t("工作目录文件")}</Text> : null}
                 {kind && (!linked || (selectedKey && model.lookup.has(selectedKey))) ? (
                   <ToolButton
                     theme={theme}
                     label={
                       preview
-                        ? "查看文件差异"
-                        : `预览 ${kind === "markdown" ? "Markdown" : kind === "html" ? "HTML" : "图片"} · ${baseline.to}`
+                        ? t("查看文件差异")
+                        : t("预览 {kind} · {revision}", {
+                            kind:
+                              kind === "markdown"
+                                ? "Markdown"
+                                : kind === "html"
+                                  ? "HTML"
+                                  : t("图片"),
+                            revision: t(baseline.to),
+                          })
                     }
                     icon={preview ? "code" : "preview"}
                     active={preview}
@@ -1498,7 +1572,13 @@ function WorkspaceEditor({
                   <>
                     <ToolButton
                       theme={theme}
-                      label={`当前${effectiveMode === "split" ? "左右对比，切换为统一对比" : "统一对比，切换为左右对比"}`}
+                      label={t("当前{mode}", {
+                        mode: t(
+                          effectiveMode === "split"
+                            ? "左右对比，切换为统一对比"
+                            : "统一对比，切换为左右对比",
+                        ),
+                      })}
                       icon={effectiveMode === "split" ? "split" : "unified"}
                       onPress={() =>
                         updateSettings({
@@ -1508,14 +1588,20 @@ function WorkspaceEditor({
                     />
                     <ToolButton
                       theme={theme}
-                      label={`上一个差异块（Shift+F7）· ${hunkCount ? hunkIndex + 1 : 0}/${hunkCount}`}
+                      label={t("上一个差异块（Shift+F7）· {position}/{count}", {
+                        position: hunkCount ? hunkIndex + 1 : 0,
+                        count: hunkCount,
+                      })}
                       icon="up"
                       disabled={!hunkCount}
                       onPress={() => moveHunk(-1)}
                     />
                     <ToolButton
                       theme={theme}
-                      label={`下一个差异块（F7）· ${hunkCount ? hunkIndex + 1 : 0}/${hunkCount}`}
+                      label={t("下一个差异块（F7）· {position}/{count}", {
+                        position: hunkCount ? hunkIndex + 1 : 0,
+                        count: hunkCount,
+                      })}
                       icon="down"
                       disabled={!hunkCount}
                       onPress={() => moveHunk(1)}
@@ -1526,7 +1612,10 @@ function WorkspaceEditor({
               {selected.file.oldPath ? (
                 <View style={styles.rename}>
                   <Text selectable style={styles.small}>
-                    重命名：{displayPath(selected.file.oldPath)} → {displayPath(selected.file.path)}
+                    {t("重命名：{old} → {new}", {
+                      old: displayPath(selected.file.oldPath),
+                      new: displayPath(selected.file.path),
+                    })}
                   </Text>
                 </View>
               ) : null}
@@ -1536,8 +1625,11 @@ function WorkspaceEditor({
                 <View style={styles.rename}>
                   <Icon name="pointer" size={12} color={colors.statusWarning} />
                   <Text style={styles.small}>
-                    子模块指针 {selected.repository.recordedHead.slice(0, 7)} →{" "}
-                    {selected.repository.head.slice(0, 7)} · 以下比较子仓自身 {baseline.from}
+                    {t("子模块指针 {from} → {to} · 以下比较子仓自身 {baseline}", {
+                      from: selected.repository.recordedHead.slice(0, 7),
+                      to: selected.repository.head.slice(0, 7),
+                      baseline: t(baseline.from),
+                    })}
                   </Text>
                 </View>
               ) : null}
@@ -1585,11 +1677,11 @@ function WorkspaceEditor({
             ) : currentTab ? (
               <View style={styles.emptyState}>
                 <Icon name="file" size={32} color={colors.foregroundMuted} />
-                <Text style={styles.emptyTitle}>此视图没有该文件的更改</Text>
+                <Text style={styles.emptyTitle}>{t("此视图没有该文件的更改")}</Text>
                 <Text style={styles.muted}>
-                  {currentTab.path} · {baseline.group}
+                  {currentTab.path} · {t(baseline.group)}
                 </Text>
-                <Text style={styles.small}>可以切换比较范围，或关闭这个标签。</Text>
+                <Text style={styles.small}>{t("可以切换比较范围，或关闭这个标签。")}</Text>
               </View>
             ) : (
               <View style={styles.emptyState}>
@@ -1608,35 +1700,35 @@ function WorkspaceEditor({
                 />
                 <Text style={styles.emptyTitle}>
                   {changes.loading
-                    ? "正在读取更改"
+                    ? t("正在读取更改")
                     : hasProblems
-                      ? "仓库状态未完整读取"
+                      ? t("仓库状态未完整读取")
                       : model.entries.length
-                        ? "选择文件开始审阅"
+                        ? t("选择文件开始审阅")
                         : query
-                          ? "没有匹配的更改"
+                          ? t("没有匹配的更改")
                           : comparison === "staged"
-                            ? "没有已暂存的更改"
+                            ? t("没有已暂存的更改")
                             : comparison === "unstaged"
-                              ? "没有未暂存的更改"
-                              : "与 HEAD 没有差异"}
+                              ? t("没有未暂存的更改")
+                              : t("与 HEAD 没有差异")}
                 </Text>
                 <Text style={[styles.muted, styles.emptyDescription]}>
                   {model.entries.length && !query
-                    ? "从侧栏打开文件；多个文件会保留在独立标签中。"
+                    ? t("从侧栏打开文件；多个文件会保留在独立标签中。")
                     : query
-                      ? "试试其他文件名或路径。"
+                      ? t("试试其他文件名或路径。")
                       : comparison === "staged"
-                        ? "没有已暂存的更改，可以切换查看全部。"
+                        ? t("没有已暂存的更改，可以切换查看全部。")
                         : comparison === "unstaged"
-                          ? "没有未暂存的更改，可以切换查看全部。"
-                          : "工作目录与各仓库 HEAD 一致；可切换已暂存或未暂存，单独查看暂存区。"}
+                          ? t("没有未暂存的更改，可以切换查看全部。")
+                          : t("工作目录与各仓库 HEAD 一致；可切换已暂存或未暂存，单独查看暂存区。")}
                 </Text>
                 {query ? (
                   <ToolButton
                     theme={theme}
-                    label="清除筛选"
-                    text="清除筛选"
+                    label={t("清除筛选")}
+                    text={t("清除筛选")}
                     onPress={() => setFilter("")}
                   />
                 ) : null}
@@ -1655,13 +1747,15 @@ function WorkspaceEditor({
           {!compact ? (
             <>
               <Text style={styles.statusText}>·</Text>
-              <Text style={styles.statusText}>{repositories?.length ?? 0} 个仓库 · 递归子模块</Text>
+              <Text style={styles.statusText}>
+                {t("{count} 个仓库 · 递归子模块", { count: repositories?.length ?? 0 })}
+              </Text>
             </>
           ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={automatic ? "暂停自动刷新" : "开启自动刷新"}
+          accessibilityLabel={automatic ? t("暂停自动刷新") : t("开启自动刷新")}
           onPress={() => updateSettings({ automatic: !automatic })}
           style={styles.statusAction}
         >
@@ -1672,17 +1766,17 @@ function WorkspaceEditor({
           />
           <Text style={styles.statusText}>
             {hasProblems
-              ? "读取异常"
+              ? t("读取异常")
               : automatic
-                ? `自动刷新 · ${settings.refreshInterval / 1000}s`
-                : "刷新已暂停"}
+                ? t("自动刷新 · {seconds}s", { seconds: settings.refreshInterval / 1000 })
+                : t("刷新已暂停")}
           </Text>
         </Pressable>
         {selected && (!compact || page === "diff") ? (
           <View style={styles.inline}>
             <ToolButton
               theme={theme}
-              label="上一个文件"
+              label={t("上一个文件")}
               icon="up"
               disabled={fileIndex <= 0}
               onPress={() => moveFile(-1)}
@@ -1692,7 +1786,7 @@ function WorkspaceEditor({
             </Text>
             <ToolButton
               theme={theme}
-              label="下一个文件"
+              label={t("下一个文件")}
               icon="down"
               disabled={fileIndex < 0 || fileIndex >= visibleFiles.length - 1}
               onPress={() => moveFile(1)}

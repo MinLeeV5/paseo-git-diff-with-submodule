@@ -16,6 +16,7 @@ import { CommitDiff, CommitSummary, HistoryNotice } from "./commit-details";
 import { COMMIT_ROW_HEIGHT, COMMIT_TIME_WIDTH, CommitGraphRow } from "./commit-graph";
 import { InputField, ToolButton } from "./controls";
 import { buildCommitGraph, type GraphRow, matchesCommit } from "./graph-model";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import { SettingsPanel } from "./settings-panel";
 import { SettingsSelect } from "./settings-select";
@@ -46,6 +47,7 @@ export function HistoryPanel({
   viewSwitcher: ReactNode;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [size, setSize] = useState({ width: 1000, height: 700 });
   const [bodyHeight, setBodyHeight] = useState(0);
   const compact = hostCompact || size.width < 720;
@@ -281,13 +283,19 @@ export function HistoryPanel({
         {viewSwitcher}
         <View style={{ flex: 1, minWidth: 0, maxWidth: 310 }}>
           <SettingsSelect
-            label="提交图仓库"
+            label={t("提交图仓库")}
             value={repositoryId}
             options={
               (repositories.data?.repositories ?? []).length
                 ? (repositories.data?.repositories ?? []).map((repo) => ({
                     value: repo.id,
-                    label: `${repo.id === "." ? name : repo.relativePath}${repo.state === "uninitialized" ? " · 未初始化" : repo.state === "error" ? " · 读取失败" : ""}`,
+                    label: `${repo.id === "." ? name : repo.relativePath}${t(
+                      repo.state === "uninitialized"
+                        ? " · 未初始化"
+                        : repo.state === "error"
+                          ? " · 读取失败"
+                          : "",
+                    )}`,
                   }))
                 : [{ value: ".", label: name }]
             }
@@ -297,14 +305,17 @@ export function HistoryPanel({
         </View>
         <View style={{ flex: 1, minWidth: 0, maxWidth: 260 }}>
           <SettingsSelect
-            label="提交图分支范围"
+            label={t("提交图分支范围")}
             value={reference}
             options={[
-              { value: "all", label: "所有分支" },
-              { value: "head", label: "当前 HEAD" },
+              { value: "all", label: t("所有分支") },
+              { value: "head", label: t("当前 HEAD") },
               ...refs.map((ref) => ({
                 value: ref.fullName,
-                label: `${ref.kind === "tag" ? "标签" : ref.kind === "remote" ? "远端" : "分支"} · ${ref.name}`,
+                label: t("{kind} · {name}", {
+                  kind: t(ref.kind === "tag" ? "标签" : ref.kind === "remote" ? "远端" : "分支"),
+                  name: ref.name,
+                }),
               })),
             ]}
             onChange={(value) => {
@@ -320,14 +331,14 @@ export function HistoryPanel({
         <ToolButton
           theme={theme}
           icon="refresh"
-          label="刷新提交图"
+          label={t("刷新提交图")}
           busy={history.loading || repositories.refreshing}
           onPress={refresh}
         />
         <ToolButton
           theme={theme}
           icon="settings"
-          label="Git 设置"
+          label={t("Git 设置")}
           onPress={() => setShowSettings(true)}
         />
       </View>
@@ -343,8 +354,8 @@ export function HistoryPanel({
           theme={theme}
           icon="search"
           inputRef={inputRef}
-          accessibilityLabel="搜索已加载提交"
-          placeholder="在已加载提交中查找消息、作者或 SHA"
+          accessibilityLabel={t("搜索已加载提交")}
+          placeholder={t("在已加载提交中查找消息、作者或 SHA")}
           value={filter}
           onChangeText={setFilter}
           autoCapitalize="none"
@@ -365,21 +376,21 @@ export function HistoryPanel({
               <ToolButton
                 theme={theme}
                 icon="up"
-                label="上一个匹配提交"
+                label={t("上一个匹配提交")}
                 disabled={!matching.length}
                 onPress={() => moveMatch(-1)}
               />
               <ToolButton
                 theme={theme}
                 icon="down"
-                label="下一个匹配提交"
+                label={t("下一个匹配提交")}
                 disabled={!matching.length}
                 onPress={() => moveMatch(1)}
               />
               <ToolButton
                 theme={theme}
                 icon="close"
-                label="清除提交搜索"
+                label={t("清除提交搜索")}
                 onPress={() => setFilter("")}
               />
             </>
@@ -408,7 +419,7 @@ export function HistoryPanel({
           <Text style={{ flex: 1, color: c.statusWarning, fontSize: 11 }}>
             {history.error ?? repositories.error}
           </Text>
-          <ToolButton theme={theme} icon="refresh" label="重试刷新提交图" onPress={refresh} />
+          <ToolButton theme={theme} icon="refresh" label={t("重试刷新提交图")} onPress={refresh} />
         </View>
       ) : null}
       <View
@@ -444,24 +455,26 @@ export function HistoryPanel({
                         fontSize: 10,
                       }}
                     >
-                      提交图
+                      {t("提交图")}
                     </Text>
                     <Text style={{ flex: 1, color: c.foregroundMuted, fontSize: 10 }}>
-                      提交信息
+                      {t("提交信息")}
                     </Text>
                     {showAuthor ? (
                       <Text style={{ width: 130, color: c.foregroundMuted, fontSize: 10 }}>
-                        作者
+                        {t("作者")}
                       </Text>
                     ) : null}
                     {showTime ? (
                       <Text
                         style={{ width: COMMIT_TIME_WIDTH, color: c.foregroundMuted, fontSize: 10 }}
                       >
-                        时间
+                        {t("时间")}
                       </Text>
                     ) : null}
-                    <Text style={{ width: 68, color: c.foregroundMuted, fontSize: 10 }}>提交</Text>
+                    <Text style={{ width: 68, color: c.foregroundMuted, fontSize: 10 }}>
+                      {t("提交")}
+                    </Text>
                   </View>
                   <FlatList
                     ref={listRef}
@@ -496,8 +509,8 @@ export function HistoryPanel({
                           <ToolButton
                             theme={theme}
                             icon="down"
-                            label="加载更多提交"
-                            text="加载更多提交"
+                            label={t("加载更多提交")}
+                            text={t("加载更多提交")}
                             busy={history.loadingMore}
                             onPress={() => {
                               void history.loadMore();
@@ -507,7 +520,7 @@ export function HistoryPanel({
                       ) : (
                         <View style={{ padding: 10, alignItems: "center" }}>
                           <Text style={{ color: c.foregroundMuted, fontSize: 10 }}>
-                            已显示全部本地历史
+                            {t("已显示全部本地历史")}
                           </Text>
                         </View>
                       )
@@ -516,19 +529,19 @@ export function HistoryPanel({
                 </View>
               </ScrollView>
             ) : history.loading ? (
-              <HistoryNotice theme={theme} busy title="正在读取提交历史…" />
+              <HistoryNotice theme={theme} busy title={t("正在读取提交历史…")} />
             ) : history.error ? (
               <HistoryNotice
                 theme={theme}
-                title="无法读取提交历史"
+                title={t("无法读取提交历史")}
                 description={history.error}
                 retry={refresh}
               />
             ) : (
               <HistoryNotice
                 theme={theme}
-                title="此仓库还没有提交"
-                description="首次提交后，分支与提交历史会显示在这里。"
+                title={t("此仓库还没有提交")}
+                description={t("首次提交后，分支与提交历史会显示在这里。")}
               />
             )}
           </View>
@@ -584,7 +597,7 @@ export function HistoryPanel({
                 <ToolButton
                   theme={theme}
                   icon="back"
-                  label="返回提交图"
+                  label={t("返回提交图")}
                   onPress={() => {
                     setDetailsOpen(false);
                     setExpanded(false);
@@ -601,18 +614,25 @@ export function HistoryPanel({
                 numberOfLines={1}
                 style={{ flex: 1, minWidth: 0, color: c.foreground, fontSize: 11 }}
               >
-                {selectedCommit?.subject ?? detail.data?.subject ?? "提交详情"}
+                {selectedCommit?.subject ?? detail.data?.subject ?? t("提交详情")}
               </Text>
               <ToolButton
                 theme={theme}
                 icon="copy"
-                label="复制完整提交 SHA"
+                label={t("复制完整提交 SHA")}
                 onPress={() => {
                   void copyText(selected).then(
-                    () => message(`${repositoryLabel(repositoryId)}：已复制提交 SHA。`, "success"),
+                    () =>
+                      message(
+                        t("{repo}：已复制提交 SHA。", { repo: repositoryLabel(repositoryId, t) }),
+                        "success",
+                      ),
                     (error: unknown) =>
                       message(
-                        `${repositoryLabel(repositoryId)}：复制失败。${briefError(error)}`,
+                        t("{repo}：复制失败。{error}", {
+                          repo: repositoryLabel(repositoryId, t),
+                          error: briefError(error),
+                        }),
                         "error",
                       ),
                   );
@@ -622,7 +642,7 @@ export function HistoryPanel({
                 <ToolButton
                   theme={theme}
                   icon={expanded ? "down" : "up"}
-                  label={expanded ? "收起提交详情" : "展开提交详情"}
+                  label={expanded ? t("收起提交详情") : t("展开提交详情")}
                   onPress={() => setExpanded((value) => !value)}
                 />
               ) : null}
@@ -630,7 +650,7 @@ export function HistoryPanel({
                 <ToolButton
                   theme={theme}
                   icon="close"
-                  label="关闭提交详情"
+                  label={t("关闭提交详情")}
                   onPress={() => {
                     setDetailsOpen(false);
                     setExpanded(false);
@@ -641,7 +661,7 @@ export function HistoryPanel({
             {detail.error ? (
               <HistoryNotice
                 theme={theme}
-                title="读取提交详情失败"
+                title={t("读取提交详情失败")}
                 description={detail.error}
                 retry={detail.retry}
               />
@@ -677,7 +697,7 @@ export function HistoryPanel({
                 ) : null}
               </>
             ) : (
-              <HistoryNotice theme={theme} busy title="正在读取提交详情…" />
+              <HistoryNotice theme={theme} busy title={t("正在读取提交详情…")} />
             )}
           </View>
         ) : null}
@@ -699,11 +719,16 @@ export function HistoryPanel({
           {history.data?.branch ?? history.data?.head?.slice(0, 8) ?? "HEAD"}
         </Text>
         <Text style={{ color: c.foregroundMuted, fontSize: 10 }}>
-          · {graph.rows.length} 次提交{history.data?.hasMore ? "（可继续加载）" : ""}
+          · {t("{count} 次提交", { count: graph.rows.length })}
+          {history.data?.hasMore ? t("（可继续加载）") : ""}
         </Text>
         <View style={{ flex: 1 }} />
         <Text style={{ color: c.foregroundMuted, fontSize: 10 }}>
-          {compact ? "只读" : `${refs.filter((ref) => ref.kind !== "tag").length} 个分支 · 只读`}
+          {compact
+            ? t("只读")
+            : t("{count} 个分支 · 只读", {
+                count: refs.filter((ref) => ref.kind !== "tag").length,
+              })}
         </Text>
       </View>
     </View>

@@ -4,6 +4,7 @@ import { Platform, Pressable, Text, View } from "react-native";
 import type { GitRef } from "../shared/history-contracts";
 import { setWebTitle } from "./controls";
 import { formatCommitTime, type GraphRow } from "./graph-model";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import { mixColor, panelTokens } from "./theme";
 
@@ -193,6 +194,7 @@ export const CommitGraphRow = memo(function CommitGraphRow({
   onSelect(oid: string): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const background = active ? c.selection : hovered ? c.surface2 : c.surface0;
@@ -206,7 +208,11 @@ export const CommitGraphRow = memo(function CommitGraphRow({
         )
       }
       accessibilityRole="button"
-      accessibilityLabel={`提交 ${row.commit.oid.slice(0, 8)} ${row.commit.subject} · ${row.commit.author}`}
+      accessibilityLabel={t("提交 {oid} {subject} · {author}", {
+        oid: row.commit.oid.slice(0, 8),
+        subject: row.commit.subject,
+        author: row.commit.author,
+      })}
       {...(Platform.OS === "web"
         ? { "aria-pressed": active, tabIndex: active ? 0 : -1 }
         : { accessibilityState: { selected: active } })}

@@ -2,6 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { createElement, useEffect, useRef, useState } from "react";
 import { PanResponder, Platform, View } from "react-native";
 import { setWebTitle } from "./controls";
+import { useT } from "./i18n";
 import { mixColor, panelTokens } from "./theme";
 
 // Pointer capture keeps dragging stable while the separator itself moves and
@@ -124,6 +125,7 @@ export function HistoryResizer({
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [focused, setFocused] = useState(false);
+  const t = useT();
   const origin = useRef(height);
   const current = useRef({ height, min, max, onChange, onCommit, onReset });
   current.current = { height, min, max, onChange, onCommit, onReset };
@@ -155,7 +157,7 @@ export function HistoryResizer({
       onPanResponderTerminate: end,
     }),
   ).current;
-  const label = "调整提交详情高度，上下方向键调整，Home 或双击恢复默认";
+  const label = t("调整提交详情高度，上下方向键调整，Home 或双击恢复默认");
   const active = hovered || dragging || focused;
   return (
     <View
@@ -245,6 +247,7 @@ export function SidebarResizer({
   theme: PluginTheme;
 }) {
   const [active, setActive] = useState(false);
+  const t = useT();
   const origin = useRef(width);
   const change = useRef(onChange);
   const current = useRef(width);
@@ -291,7 +294,7 @@ export function SidebarResizer({
       ref={webRef}
       testID="git-sidebar-resizer"
       accessibilityRole="adjustable"
-      accessibilityLabel="调整侧栏宽度，方向键每次 10 像素"
+      accessibilityLabel={t("调整侧栏宽度，方向键每次 10 像素")}
       accessibilityValue={{ min: 180, max: 600, now: Math.round(width) }}
       {...(Platform.OS === "web" ? {} : responder.panHandlers)}
       {...(Platform.OS === "web"
@@ -342,6 +345,7 @@ export function DiffResizer({
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [focused, setFocused] = useState(false);
+  const t = useT();
   const origin = useRef(ratio);
   const dragWidth = useRef(width);
   const current = useRef({ ratio, width, onChange, onCommit });
@@ -390,7 +394,7 @@ export function DiffResizer({
       ref={webRef}
       testID="git-diff-resizer"
       accessibilityRole="adjustable"
-      accessibilityLabel="调整左右对比宽度，方向键调整，Home 或双击恢复均分"
+      accessibilityLabel={t("调整左右对比宽度，方向键调整，Home 或双击恢复均分")}
       accessibilityValue={{ min: 20, max: 80, now: Math.round(ratio * 100) }}
       {...(Platform.OS === "web" ? {} : responder.panHandlers)}
       {...(Platform.OS === "web"

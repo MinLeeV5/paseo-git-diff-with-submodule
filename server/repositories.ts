@@ -7,6 +7,7 @@ import type {
   FileChange,
   RepositorySnapshot,
 } from "../shared/contracts";
+import { type Translate, tZh } from "../shared/i18n";
 import { mapLimit, TaskPool } from "./concurrency";
 import { DIFF_OPTIONS, errorMessage, git } from "./git";
 import {
@@ -22,7 +23,7 @@ export const MAX_FILE_BYTES = 1024 * 1024;
 export function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 24);
 }
-export function resolveFile(directory: string, path: string): string {
+export function resolveFile(directory: string, path: string, t: Translate = tZh): string {
   const absolute = resolve(directory, path);
   const delta = relative(directory, absolute);
   if (
@@ -32,7 +33,7 @@ export function resolveFile(directory: string, path: string): string {
     delta.startsWith(`..${sep}`) ||
     isAbsolute(delta)
   ) {
-    throw new Error("文件路径必须位于所属仓库内。");
+    throw new Error(t("文件路径必须位于所属仓库内。"));
   }
   return absolute;
 }
@@ -263,8 +264,10 @@ export async function scanWorkspace(
       hasChildren: boolean,
       order: string,
     ): void;
+    t?: Translate;
   } = {},
 ): Promise<ChangesSnapshot> {
+  const t = options.t ?? tZh;
   const requested = await realpath(resolve(input.directory));
   const directory = await realpath((await git(requested, ["rev-parse", "--show-toplevel"])).trim());
   const visited = new Set<string>();
@@ -317,7 +320,7 @@ export async function scanWorkspace(
         if (top !== canonical) {
           return null;
         }
-        if (visited.has(canonical)) throw new Error("检测到重复的子模块仓库路径。");
+        if (visited.has(canonical)) throw new Error(t("检测到重复的子模块仓库路径。"));
         visited.add(canonical);
         return (options.read ?? readRepository)(
           canonical,

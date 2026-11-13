@@ -1,6 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { Image, ScrollView, Text, type TextStyle, View } from "react-native";
+import { useT } from "./i18n";
 import { type MarkdownNode, markdownNodes } from "./markdown-model";
 import { panelTokens } from "./theme";
 
@@ -22,6 +23,7 @@ export function NativeMarkdown({
   onNavigate(href: string): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const nodes = useMemo(() => markdownNodes(content, c.surface0), [content, c.surface0]);
   const scroll = useRef<ScrollView>(null);
   const headings = useRef(new Map<string, number>());
@@ -50,7 +52,7 @@ export function NativeMarkdown({
       if (node.tag === "img")
         return (
           <Text key={node.key} style={{ color: c.foregroundMuted }}>
-            {node.attributes.alt || "图片"}
+            {node.attributes.alt || t("图片")}
           </Text>
         );
       const style: TextStyle =
@@ -180,7 +182,7 @@ export function NativeMarkdown({
       return (
         <View key={node.key} style={{ marginVertical: 8 }}>
           <Text style={[textStyle, { color: c.foregroundMuted }]}>
-            Mermaid 图表源码（图形预览可在桌面或 Web 打开）
+            {t("Mermaid 图表源码（图形预览可在桌面或 Web 打开）")}
           </Text>
           {children
             .filter((child) => child.tag === "details")

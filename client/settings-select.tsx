@@ -2,6 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { createElement, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { ToolButton } from "./controls";
+import { useT } from "./i18n";
 import { Icon } from "./icons";
 import { panelTokens } from "./theme";
 
@@ -23,6 +24,7 @@ export function SettingsSelect({
   disabled?: boolean;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const selected = options.find((option) => option.value === value);
@@ -78,7 +80,7 @@ export function SettingsSelect({
     <>
       <Pressable
         accessibilityRole="combobox"
-        accessibilityLabel={`${label}：${selected?.label ?? value}`}
+        accessibilityLabel={t("{label}：{value}", { label, value: selected?.label ?? value })}
         accessibilityState={{ disabled, expanded: open }}
         disabled={disabled}
         onPress={() => setOpen(true)}
@@ -103,7 +105,7 @@ export function SettingsSelect({
         <Modal transparent animationType="none" onRequestClose={() => setOpen(false)}>
           <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000066" }}>
             <Pressable
-              accessibilityLabel={`关闭${label}选择`}
+              accessibilityLabel={t("关闭{label}选择", { label })}
               onPress={() => setOpen(false)}
               style={{ flex: 1 }}
             />
@@ -115,7 +117,7 @@ export function SettingsSelect({
                 <ToolButton
                   theme={theme}
                   icon="close"
-                  label={`关闭${label}选择`}
+                  label={t("关闭{label}选择", { label })}
                   onPress={() => setOpen(false)}
                 />
               </View>

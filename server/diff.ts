@@ -1,5 +1,6 @@
 import { lstat } from "node:fs/promises";
 import type { Comparison, FileDiff, RepositorySnapshot } from "../shared/contracts";
+import { type Translate, tZh } from "../shared/i18n";
 import { DIFF_OPTIONS, GitError, type GitReadContext, git, withGitPriority } from "./git";
 import { parseHunks } from "./parsers";
 import { comparisonArgs, MAX_FILE_BYTES, resolveFile } from "./repositories";
@@ -9,6 +10,7 @@ function materialize(
   path: string,
   patch: string,
   ignoreWhitespace: boolean,
+  t: Translate = tZh,
 ): FileDiff {
   const change = repository.files.find((file) => file.path === path);
   const result: FileDiff = {
@@ -24,7 +26,7 @@ function materialize(
     /^Binary files .* differ$/m.test(patch) ||
     /^GIT binary patch$/m.test(patch)
   )
-    return { ...result, state: "binary", message: "二进制文件已变化，无法显示文本行差异。" };
+    return { ...result, state: "binary", message: t("二进制文件已变化，无法显示文本行差异。") };
   const hunks = parseHunks(patch);
   return {
     ...result,
@@ -33,10 +35,10 @@ function materialize(
     message: hunks.length
       ? null
       : patch
-        ? "仅文件名、类型或权限等元数据发生变化。"
+        ? t("仅文件名、类型或权限等元数据发生变化。")
         : ignoreWhitespace
-          ? "忽略空白后没有文本差异。"
-          : "当前没有文本差异。",
+          ? t("忽略空白后没有文本差异。")
+          : t("当前没有文本差异。"),
   };
 }
 
@@ -46,9 +48,10 @@ export async function readFileDiff(
   comparison: Comparison,
   context = 3,
   ignoreWhitespace = false,
+  t: Translate = tZh,
 ): Promise<FileDiff> {
   const change = repository.files.find((file) => file.path === path);
-  if (!change) throw new Error("该文件已不在当前变更列表中，请刷新后重试。");
+  if (!change) throw new Error(t("该文件已不在当前变更列表中，请刷新后重试。"));
   const result: FileDiff = {
     path,
     ...(change.oldPath ? { oldPath: change.oldPath } : {}),
@@ -60,19 +63,19 @@ export async function readFileDiff(
   if (change.status === "conflicted" && comparison !== "head") {
     return {
       ...result,
-      message: "文件存在未解决的合并冲突，请切换全部未提交查看工作目录中的冲突标记。",
+      message: t("文件存在未解决的合并冲突，请切换全部未提交查看工作目录中的冲突标记。"),
     };
   }
   const absolute = resolveFile(repository.directory, path);
   try {
     const stat = await lstat(absolute);
     if (stat.isDirectory())
-      return { ...result, message: "这是未注册的嵌套仓库目录，请单独打开该仓库。" };
+      return { ...result, message: t("这是未注册的嵌套仓库目录，请单独打开该仓库。") };
     if (comparison !== "staged" && stat.size > MAX_FILE_BYTES)
       return {
         ...result,
         state: "too_large",
-        message: "文件超过 1 MiB，保留变更状态和统计；请在本地 Git 工具中查看完整内容。",
+        message: t("文件超过 1 MiB，保留变更状态和统计；请在本地 Git 工具中查看完整内容。"),
       };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -109,11 +112,11 @@ export async function readFileDiff(
       return {
         ...result,
         state: "too_large",
-        message: "补丁超过 2 MiB，请在本地 Git 工具中查看完整内容。",
+        message: t("补丁超过 2 MiB，请在本地 Git 工具中查看完整内容。"),
       };
     throw error;
   }
-  return materialize(repository, path, patch, ignoreWhitespace);
+  return materialize(repository, path, patch, ignoreWhitespace, t);
 }
 
 interface DiffJob {
@@ -123,6 +126,7 @@ interface DiffJob {
   ignoreWhitespace: boolean;
   baseOid: string;
   execution: GitReadContext;
+  t: Translate;
   accept(diff: FileDiff): void;
   reject(error: unknown): void;
 }
@@ -154,8 +158,9 @@ export class FileDiffBatcher {
     path: string,
     context: number,
     ignoreWhitespace: boolean,
+    t: Translate,
   ) {
-    const diff = await readFileDiff(repository, path, "head", context, ignoreWhitespace);
+    const diff = await readFileDiff(repository, path, "head", context, ignoreWhitespace, t);
     if (diff.patch) {
       this.headers.set(key, diff.patch.split("\n", 1)[0] === `diff --git a/${path} b/${path}`);
       while (this.headers.size > 64)
@@ -181,6 +186,7 @@ export class FileDiffBatcher {
     ignoreWhitespace: boolean,
     baseOid?: string,
     execution: GitReadContext = { priority: "interactive" },
+    t: Translate = tZh,
   ): Promise<FileDiff> {
     const file = repository.files.find((file) => file.path === path);
     if (
@@ -192,17 +198,17 @@ export class FileDiffBatcher {
       baseOid === undefined ||
       !/^[a-zA-Z0-9_./-]+$/.test(path)
     )
-      return readFileDiff(repository, path, comparison, context, ignoreWhitespace);
+      return readFileDiff(repository, path, comparison, context, ignoreWhitespace, t);
     // A size probe for every distinct baseline can cost more than the saved
     // diff processes. Share only a baseline object already used by this group.
     const key = this.key(repository, context, ignoreWhitespace, baseOid);
     // Establish support from an ordinary requested patch. Unknown or custom Git
     // prefixes use the original reader immediately, with no probing Git process.
     if (this.headers.get(key) !== true)
-      return this.single(key, repository, path, context, ignoreWhitespace);
+      return this.single(key, repository, path, context, ignoreWhitespace, t);
     const busy = this.active.has(key);
     return this.track(key, () => {
-      if (!busy) return this.single(key, repository, path, context, ignoreWhitespace);
+      if (!busy) return this.single(key, repository, path, context, ignoreWhitespace, t);
       let jobs = this.groups.get(key);
       if (!jobs) {
         jobs = [];
@@ -223,6 +229,7 @@ export class FileDiffBatcher {
           ignoreWhitespace,
           baseOid,
           execution,
+          t,
           accept,
           reject,
         }),
@@ -243,7 +250,14 @@ export class FileDiffBatcher {
       try {
         job.accept(
           await withGitPriority(job.execution, () =>
-            readFileDiff(job.repository, job.path, "head", job.context, job.ignoreWhitespace),
+            readFileDiff(
+              job.repository,
+              job.path,
+              "head",
+              job.context,
+              job.ignoreWhitespace,
+              job.t,
+            ),
           ),
         );
       } catch (error) {
@@ -326,7 +340,8 @@ export class FileDiffBatcher {
       for (const job of bounded) {
         const section = sections.get(`diff --git a/${job.path} b/${job.path}`) ?? "";
         if (section && Buffer.byteLength(section) > 2 * 1024 * 1024) fallbacks.push(fallback(job));
-        else job.accept(materialize(job.repository, job.path, section, job.ignoreWhitespace));
+        else
+          job.accept(materialize(job.repository, job.path, section, job.ignoreWhitespace, job.t));
       }
       await Promise.all(fallbacks);
     } catch {
@@ -334,13 +349,13 @@ export class FileDiffBatcher {
     }
     await Promise.all([otherReads, oversized]);
   }
-  invalidate(directories: Set<string>) {
+  invalidate(directories: Set<string>, t: Translate = tZh) {
     for (const key of this.headers.keys())
       if (directories.has((JSON.parse(key) as string[])[0])) this.headers.delete(key);
     for (const [key, jobs] of this.groups)
       if (directories.has(jobs[0].repository.directory)) {
         this.groups.delete(key);
-        for (const job of jobs) job.reject(new Error("仓库已更新，请重试读取差异。"));
+        for (const job of jobs) job.reject(new Error(t("仓库已更新，请重试读取差异。")));
       }
   }
   close() {

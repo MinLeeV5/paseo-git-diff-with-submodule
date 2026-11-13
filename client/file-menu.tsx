@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useT } from "./i18n";
 import { Icon, type IconName } from "./icons";
 import { panelTokens } from "./theme";
 
@@ -39,6 +40,7 @@ export function FileMenu({
   onClose(): void;
 }) {
   const c = panelTokens(theme);
+  const t = useT();
   const { width, height } = useWindowDimensions();
   const nodes = useRef(new Map<string, View>());
   const [focused, setFocused] = useState<string | null>(null);
@@ -57,13 +59,13 @@ export function FileMenu({
     <Modal transparent animationType="none" onRequestClose={onClose}>
       <View style={{ flex: 1 }}>
         <Pressable
-          accessibilityLabel="关闭文件菜单"
+          accessibilityLabel={t("关闭文件菜单")}
           onPress={onClose}
           style={{ position: "absolute", inset: 0 }}
         />
         <View
           accessibilityRole="menu"
-          accessibilityLabel={`${target.path} 文件操作`}
+          accessibilityLabel={t("{path} 文件操作", { path: target.path })}
           {...(Platform.OS === "web"
             ? {
                 onKeyDown: (event: {
